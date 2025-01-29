@@ -1,0 +1,260 @@
+import requests
+import uuid
+import json
+from datetime import datetime
+import time
+import os
+import argparse
+from InquirerPy import prompt
+
+
+class AtlasExplorer:
+  AE_GLOBAL_API = 'https://gyrfalcon.api.mips.com'
+
+  def __init__(self, apikey):
+    self.apikey = apikey
+    self.channel = "development"
+    self.region = "us-west-2"
+  
+  def setRootExperimentDirectory(self, path):
+    self.rootpath = path
+    if os.path.exists(path) == False:
+       os.mkdir(path)
+
+  def getChannelList(self):
+    url = self.AE_GLOBAL_API + '/channellist'
+    myobj = {'apikey': self.apikey, 'extversion': '0.0.24'}
+    x = requests.get(url, headers = myobj)
+    return x.json()
+
+  def validateApiKey(self):
+    url = self.AE_GLOBAL_API +'/validateapikey'
+    myobj = {'apikey': self.apikey}
+    x = requests.get(url, headers = myobj)
+    return x.json()
+
+  def getUserPermissions(self):
+    url = self.AE_GLOBAL_API + '/user'
+    myobj = {'apikey': self.apikey}
+    x = requests.get(url, headers = myobj)
+    return x.text
+
+  def setGWbyChannelRegion(self):
+    print("setting up selected gateway")
+    url = self.AE_GLOBAL_API +'/gwbychannelregion'
+    myobj = {'apikey': self.apikey, 'channel' : self.channel, 'region': self.region}
+    x = requests.get(url, headers = myobj)
+    self.gateway = x.json()['endpoint']
+    print("gateway has been set")
+    
+
+  def uploadConfig(self, url, content):
+      print("uploading config")
+      resp = requests.put(url, data=content)
+      return resp.content
+
+  def uploadElfFile(self, url, elfPath):
+      print("uploading elf file")
+      with open(elfPath, 'rb') as f:
+        file_content = f.read()
+
+      headersObj = {'Content-Type': 'application/octet-stream', 'Content-Length' : str(len(file_content)) }
+      resp = requests.put(url, data=file_content, headers=headersObj)
+      return resp.content
+  
+  def getStatus(self, url):
+     x = requests.get(url)
+     return x.json()
+
+
+  def downloadBinaryFile(self, url, targetPath, targetFile):
+    response = requests.get(url, stream=True)
+    with open(targetPath + "/" +targetFile, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=1024): 
+            f.write(chunk)
+
+  def downloadTextFile(self, url, targetFile):
+     response = requests.get(url, stream=True)
+     with open(targetFile, 'w') as f:
+        f.write(response.text)
+
+
+ # returns signed urls for report/statusget, grrput
+  def creatReport(self, reporttype, expconfig, datetime ):
+    print("creating report " + reporttype)
+    formatted_string = datetime.strftime("%y%m%d-%H%M%S")
+    reportuuid = formatted_string + "_"+str(uuid.uuid4())
+    print("reportUUID: " + reportuuid)
+
+    reportConfigDict =  {
+    "startDate": formatted_string,
+    "reportUUID": reportuuid,
+    "expUUID": expconfig['uuid'], # expuuid,
+    "core": expconfig['core'],
+    "elf": expconfig['elf'],
+    "reportName" : reporttype,
+    "reportType" : reporttype,
+    "userParameters" : [],
+    "startInst" : 1,
+    "endInst": -1,
+    "resolution" : 1,
+    'toolsVersion': 'latest',
+    'timeout':300,
+    'pluginVersion': '0.0.53'  # ext version 
+
+    }
+
+    rblob = {}
+    rblob['data'] = reportConfigDict
+    reportConfigJson = json.dumps(rblob)
+
+    url = self.gateway +'/createsignedurls'
+    myobj = {'apikey': self.apikey, 'channel' : self.channel, 'exp-uuid': expconfig['uuid'], 'action' : 'report'}
+    resp = requests.post(url, json=reportConfigDict, headers = myobj)  # fetch the presigned url 
+    reportCfgURL = resp.json()['reporturl']
+    reportStatusURL = resp.json()['statusget']
+    grrPutURL = resp.json()['grrput']
+
+    # upload report cfg file, 
+    print("uploading report config")
+    uploadReportResp = self.uploadConfig(reportCfgURL, reportConfigJson)
+
+    grrDict = {
+       "data": "todo timestamp",
+    }
+    grrJson = json.dumps(grrDict)
+    # upload report request file to trigger start of report 
+    print("uploading report request file")
+    grrResp = self.uploadConfig(grrPutURL, grrJson)
+    count = 0
+    while count < 10:
+         count += 1
+         time.sleep(2)  # Pause for 1 second
+         status = self.getStatus(reportStatusURL)
+         if status['code'] == 100:
+            print("report " + reporttype + " is being generated")
+         if status['code'] == 200:
+             print("report "+ reporttype  + " is ready")
+             # down load results 
+             for report in status['metadata']['reports']:
+                name = report['name']
+                url = report['url']
+                type = report['type']
+
+                if type == 'stream':
+                   reportpath = self.expdir + "/"+reporttype
+                   os.mkdir(reportpath)
+                   self.downloadBinaryFile(url, reportpath, name)
+              
+            # self.downloadZSTF(zstfFileURL, elf+'.zstf')
+            # zstfsuccess = True
+             break
+         elif status['code'] == 500:
+            print("error generating report(s), escaping now")
+            break
+
+
+   # apikey, channel, action=experiment exp-uuid, workload
+  def createExperiment(self, elf, core):
+     print("creating experiment")
+     # todo , validate elf path and existance , and core name is valid
+    # generate exp uuid, 
+     now = datetime.now()  # Get current datetime
+     formatted_string = now.strftime("%y%m%d-%H%M%S")
+     expuuid = formatted_string + "_"+str(uuid.uuid4())
+     print("expUUID: " + expuuid)
+
+     expdir = self.rootpath + "/" + formatted_string
+     os.mkdir(expdir)
+     self.expdir = expdir
+
+     url = self.gateway +'/createsignedurls'
+     myobj = {'apikey': self.apikey, 'channel' : self.channel, 'exp-uuid': expuuid, 'workload': elf, 'core': core, 'action' : 'experiment'}
+     resp = requests.post(url, headers = myobj)  # fetch the presigned url 
+     
+     cfgURL =  resp.json()['cfgurl']
+     elfURL = resp.json()['elfurl']
+     statusURL = resp.json()['statusget']
+     zstfFileURL = resp.json()['zstffile']
+     
+     configDict = {
+      "core": core,
+      "elf": elf,
+      "uuid": expuuid,
+      "localISS": False,
+      "localSimulator" : False,
+      'toolsVersion': 'latest',
+      'timeout':300,
+      'pluginVersion': '0.0.53'  # ext version 
+      }
+
+     configJson = json.dumps(configDict)
+     cfgresp = self.uploadConfig(cfgURL, configJson)
+     elfresp = self.uploadElfFile(elfURL,elf)
+
+     
+     count = 0
+     zstfsuccess = False
+     while count < 10:
+         count += 1
+         time.sleep(2)  # Pause for 1 second
+         status = self.getStatus(statusURL)
+         if status['code'] == 100:
+            print("zstf file is being generated...")
+         if status['code'] == 200:
+             print("zstf file is complete, downloading file now")
+             self.downloadBinaryFile(zstfFileURL, expdir, elf+'.zstf')
+             zstfsuccess = True
+             break
+         elif status['code'] == 500:
+            print("error genterating zstf, escaping now")
+            break
+     
+     # kick of summary report
+     if zstfsuccess == True:
+        self.creatReport("summary" , configDict, now)
+        self.creatReport("inst_counts" , configDict, now)
+        self.creatReport("inst_trace" , configDict, now)
+
+     print("experiment complete")
+    
+# # end class def
+
+def main(args):
+    """Main program""" 
+    # print("this is main: " + args.login)
+    questions = [
+    {
+        'type': 'input',
+        'name': 'apikey',
+        'message': 'what is your api key'
+    },
+    {
+        'type': 'list',
+        'name': 'channel',
+        'message': 'Please select a channel?',
+        'choices': ['development', 'pr3']
+    },
+     {
+        'type': 'list',
+        'name': 'region',
+        'message': 'Please select a region?',
+        'choices': ['us-west-2', 'us-east-1']
+    }
+
+    ]
+
+    answers = prompt(questions)
+    print(answers)
+       
+if __name__ == "__main__":
+    print("Running " + os.path.basename(__file__))
+    parser = argparse.ArgumentParser(
+        prog="install_tools",
+        description="Install tools using a channel manifest file",
+        epilog="Good luck!",
+    )
+
+    parser.add_argument("login", help="login wizard", nargs="?")
+    args = parser.parse_args()
+    main(args)

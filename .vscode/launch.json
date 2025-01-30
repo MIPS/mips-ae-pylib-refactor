@@ -6,11 +6,19 @@
     "configurations": [
     
         {
-            "name": "Python Debugger: Current File",
+            "name": "Run Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Config Command",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["configure"]
         }
     ]
 }

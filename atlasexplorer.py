@@ -13,21 +13,32 @@ from InquirerPy import prompt
 class AtlasExplorer:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
-    def __init__(self, apikey):
-        self.apikey = apikey
-        self.channel = "development"
-        self.region = "us-west-2"
+    def __init__(self):
+        # check env var,  then check file..etc.
+        # print(os.environ['HOME'])
+        # file first,
+        home_dir = os.path.expanduser("~")
+        path_parts = [home_dir, ".config", "mips", "atlastpy", "config.json"]
+        configfile = os.path.join(*path_parts)
+        if os.path.exists(configfile):
+            with open(configfile) as f:
+                data = json.load(f)
+                self.apikey = data["apikey"]
+                self.channel = data["channel"]
+                self.region = data["region"]
+        else:
+            print("No configuration found, please run 'configure' command")
 
     def setRootExperimentDirectory(self, path):
         self.rootpath = path
         if not os.path.exists(path):
             os.mkdir(path)
 
-    def getChannelList(self):
-        url = self.AE_GLOBAL_API + "/channellist"
-        myobj = {"apikey": self.apikey, "extversion": "0.0.24"}
-        x = requests.get(url, headers=myobj)
-        return x.json()
+    # def getChannelList(self):
+    #    url = self.AE_GLOBAL_API + "/channellist"
+    #    myobj = {"apikey": self.apikey, "extversion": "0.0.24"}
+    #    x = requests.get(url, headers=myobj)
+    #    return x.json()
 
     def validateApiKey(self):
         url = self.AE_GLOBAL_API + "/validateapikey"
@@ -35,11 +46,11 @@ class AtlasExplorer:
         x = requests.get(url, headers=myobj)
         return x.json()
 
-    def getUserPermissions(self):
-        url = self.AE_GLOBAL_API + "/user"
-        myobj = {"apikey": self.apikey}
-        x = requests.get(url, headers=myobj)
-        return x.text
+    # def getUserValid(self):
+    #    url = self.AE_GLOBAL_API + "/user"
+    #    myobj = {"apikey": self.apikey}
+    #    x = requests.get(url, headers=myobj)
+    #    return x.status_code == 200
 
     def setGWbyChannelRegion(self):
         print("setting up selected gateway")
@@ -235,6 +246,23 @@ class AtlasExplorer:
 # # end class def
 
 
+AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
+
+
+def getChannelList(apikey):
+    url = AE_GLOBAL_API + "/channellist"
+    myobj = {"apikey": apikey, "extversion": "0.0.24"}
+    x = requests.get(url, headers=myobj)
+    return x.json()
+
+
+def getUserValid(apikey):
+    url = AE_GLOBAL_API + "/user"
+    myobj = {"apikey": apikey}
+    x = requests.get(url, headers=myobj)
+    return x.status_code == 200
+
+
 def configure(args):
     """Main program"""
     # print("this is main: " + args.login)
@@ -256,43 +284,71 @@ def configure(args):
 
     answers = prompt(question_apikey)
 
-    myinst = AtlasExplorer(answers["apikey"])
-    chlist = myinst.getChannelList()["channels"]
-    chnamellist = []
-    for ch in chlist:
-        chnamellist.append(ch["name"])
+    # myinst = AtlasExplorer(answers["apikey"])
 
-    question_channel = [
-        {
-            "type": "list",
-            "name": "channel",
-            "message": "Please select a channel?",
-            "choices": chnamellist,
+    if getUserValid(answers["apikey"]):
+        chlist = getChannelList(answers["apikey"])["channels"]
+        chnamellist = []
+        for ch in chlist:
+            chnamellist.append(ch["name"])
+
+        question_channel = [
+            {
+                "type": "list",
+                "name": "channel",
+                "message": "Please select a channel?",
+                "choices": chnamellist,
+            }
+        ]
+        # get the channels for this user.
+        chanswer = prompt(question_channel)
+
+        # get the region for the channel from the list above.
+        regionlist = []
+        for ch in chlist:
+            if (
+                ch["name"] == chanswer["channel"]
+            ):  # find the channel , extract regions into a list
+                for reg in ch["regions"]:
+                    regionlist = json.loads(ch["regions"])
+                    break
+
+        question_region = [
+            {
+                "type": "list",
+                "name": "region",
+                "message": "Please select a region?",
+                "choices": regionlist,
+            }
+        ]
+
+        regionanswer = prompt(question_region)
+
+        config = {
+            "apikey": answers["apikey"],
+            "channel": chanswer["channel"],
+            "region": regionanswer["region"],
         }
-    ]
-    # get the channels for this user.
-    chanswer = prompt(question_channel)
 
-    # get the region for the channel from the list above.
-    regionlist = []
-    for ch in chlist:
-        if (
-            ch["name"] == chanswer["channel"]
-        ):  # find the channel , extract regions into a list
-            for reg in ch["regions"]:
-                regionlist = json.loads(ch["regions"])
-                break
+        print("storing your configuration in home directory")
+        home_dir = os.path.expanduser("~")
+        print(home_dir)
+        if not os.path.exists(home_dir + "/.config/mips"):
+            os.mkdir(home_dir + "/.config/mips")
 
-    question_region = [
-        {
-            "type": "list",
-            "name": "region",
-            "message": "Please select a region?",
-            "choices": regionlist,
-        }
-    ]
+        configdir = home_dir + "/.config/mips/atlastpy/"
+        if not os.path.exists(configdir):
+            os.mkdir(configdir)
 
-    regionanswer = prompt(question_region)
+        with open(configdir + "/config.json", "w") as f:
+            json.dump(config, f, indent=4)
+
+        print(
+            "If you wish, you may set a enviroment variable 'MIPS_ATLAS_EXP_CONFIG' to the following string: "
+        )
+        print(config)
+    else:
+        print("invalid api key")
 
 
 def subcmd_configure(subparsers):

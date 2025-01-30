@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import requests
 import uuid
 import json
@@ -233,7 +235,7 @@ class AtlasExplorer:
 # # end class def
 
 
-def main(args):
+def configure(args):
     """Main program"""
     # print("this is main: " + args.login)
     question_apikey = [
@@ -293,14 +295,25 @@ def main(args):
     regionanswer = prompt(question_region)
 
 
+def subcmd_configure(subparsers):
+    parser = subparsers.add_parser(
+        "configure",
+        help="Configure Atlas Explorer Cloud Access",
+    )
+    parser.set_defaults(handler_function="configure")
+
+
 if __name__ == "__main__":
-    print("Running " + os.path.basename(__file__))
     parser = argparse.ArgumentParser(
-        prog="install_tools",
-        description="Install tools using a channel manifest file",
-        epilog="Good luck!",
+        prog="atlasexplorer",
+        description="Atlas Explorer Utility",
     )
 
-    parser.add_argument("login", help="login wizard", nargs="?")
+    subparsers = parser.add_subparsers(help="subcommand help", required=True)
+
+    subcmd_configure(subparsers)
+
     args = parser.parse_args()
-    main(args)
+
+    # Execute provided subcommand
+    eval(args.handler_function + "(args)")

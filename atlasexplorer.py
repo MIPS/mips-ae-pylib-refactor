@@ -26,6 +26,7 @@ class AtlasExplorer:
                 self.apikey = data["apikey"]
                 self.channel = data["channel"]
                 self.region = data["region"]
+                self.setGWbyChannelRegion()
         else:
             print("No configuration found, please run 'configure' command")
 
@@ -175,7 +176,12 @@ class AtlasExplorer:
     # apikey, channel, action=experiment exp-uuid, workload
     def createExperiment(self, elf, core):
         print("creating experiment")
-        # todo , validate elf path and existance , and core name is valid
+
+        if not os.path.exists(elf):
+            print("elf does not exist, please check path")
+            return
+
+        # todo check core value
         # generate exp uuid,
         now = datetime.now()  # Get current datetime
         formatted_string = now.strftime("%y%m%d-%H%M%S")
@@ -241,6 +247,7 @@ class AtlasExplorer:
             self.creatReport("inst_trace", configDict, now)
 
         print("experiment complete")
+        return formatted_string
 
 
 # # end class def

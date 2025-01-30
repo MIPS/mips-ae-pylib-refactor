@@ -13,13 +13,18 @@ myinst.setRootExperimentDirectory("./myexperiments")
 # run an experiment with "reports" against your elf / core selelection
 # retturns exp sub dir name
 expdir = myinst.createExperiment("mandelbrot_O0.elf", "shogun")
-print("exp dir: " + expdir)
+print("expiriment dir: " + expdir)
 # todo:  parse result reports
 
-print("unpacking summary report")
-reporttar = os.path.join("myexperiments", expdir, "summary", "report_results.tar.gz")
+reportnames = ["summary", "inst_counts", "inst_trace"]
 
-destdir = os.path.join("myexperiments", expdir, "summary")
-with tarfile.open(reporttar, "r:gz") as tar:
-    tar.extractall(destdir)
-    tar.close()
+for report in reportnames:
+    print("unpacking report: " + report)
+    reporttar = os.path.join("myexperiments", expdir, report, "report_results.tar.gz")
+    if os.path.exists(reporttar):
+        destdir = os.path.join("myexperiments", expdir, report)
+        with tarfile.open(reporttar, "r:gz") as tar:
+            tar.extractall(destdir)
+            tar.close()
+    else:
+        print("report does not exist!!, skipped " + report)

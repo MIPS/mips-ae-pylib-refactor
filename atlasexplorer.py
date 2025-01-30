@@ -223,29 +223,66 @@ class AtlasExplorer:
 def main(args):
     """Main program""" 
     # print("this is main: " + args.login)
-    questions = [
+    question_apikey = [
     {
         'type': 'input',
         'name': 'apikey',
         'message': 'what is your api key'
     },
+   # {
+   #     'type': 'list',
+   #     'name': 'channel',
+   #     'message': 'Please select a channel?',
+   #     'choices': ['development', 'pr3']
+   # },
+   #  {
+   #     'type': 'list',
+   #     'name': 'region',
+   #     'message': 'Please select a region?',
+   #     'choices': ['us-west-2', 'us-east-1']
+   # }
+
+    ]
+
+    answers = prompt(question_apikey)
+
+    myinst = AtlasExplorer(answers['apikey'])
+    chlist = myinst.getChannelList()['channels']
+    chnamellist = []
+    for ch in chlist:
+       chnamellist.append(ch['name'])
+       
+    question_channel = [
     {
         'type': 'list',
         'name': 'channel',
         'message': 'Please select a channel?',
-        'choices': ['development', 'pr3']
-    },
-     {
+        'choices': chnamellist
+    }
+    ]
+    # get the channels for this user. 
+    chanswer = prompt(question_channel)
+
+    # get the region for the channel from the list above. 
+    regionlist = []
+    for ch in chlist:
+       if ch['name'] == chanswer['channel']:  # find the channel , extract regions into a list
+         for reg in ch['regions']:
+           regionlist = json.loads(ch['regions'])
+           break
+
+    question_region = [
+    {
         'type': 'list',
         'name': 'region',
         'message': 'Please select a region?',
-        'choices': ['us-west-2', 'us-east-1']
+        'choices': regionlist
     }
-
     ]
 
-    answers = prompt(questions)
-    print(answers)
+    regionanswer = prompt(question_region)
+   
+    
        
 if __name__ == "__main__":
     print("Running " + os.path.basename(__file__))

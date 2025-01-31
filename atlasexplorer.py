@@ -15,20 +15,28 @@ class AtlasExplorer:
 
     def __init__(self):
         # check env var,  then check file..etc.
-        # print(os.environ['HOME'])
-        # file first,
-        home_dir = os.path.expanduser("~")
-        path_parts = [home_dir, ".config", "mips", "atlastpy", "config.json"]
-        configfile = os.path.join(*path_parts)
-        if os.path.exists(configfile):
-            with open(configfile) as f:
-                data = json.load(f)
-                self.apikey = data["apikey"]
-                self.channel = data["channel"]
-                self.region = data["region"]
-                self.setGWbyChannelRegion()
+
+        if "MIPS_ATLAS_CONFIG" in os.environ:
+            envvarval = os.environ["MIPS_ATLAS_CONFIG"]
+            data = json.load(envvarval)
+            self.apikey = data["apikey"]
+            self.channel = data["channel"]
+            self.region = data["region"]
+            self.setGWbyChannelRegion()
         else:
-            print("No configuration found, please run 'configure' command")
+            # file first,
+            home_dir = os.path.expanduser("~")
+            path_parts = [home_dir, ".config", "mips", "atlastpy", "config.json"]
+            configfile = os.path.join(*path_parts)
+            if os.path.exists(configfile):
+                with open(configfile) as f:
+                    data = json.load(f)
+                    self.apikey = data["apikey"]
+                    self.channel = data["channel"]
+                    self.region = data["region"]
+                    self.setGWbyChannelRegion()
+            else:
+                print("No configuration found, please run 'configure' command")
 
     def setRootExperimentDirectory(self, path):
         self.rootpath = path
@@ -351,7 +359,7 @@ def configure(args):
             json.dump(config, f, indent=4)
 
         print(
-            "If you wish, you may set a enviroment variable 'MIPS_ATLAS_EXP_CONFIG' to the following string: "
+            "If you wish, you may set a enviroment variable 'MIPS_ATLAS_CONFIG' to the following string: "
         )
         print(config)
     else:

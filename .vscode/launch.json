@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
         {
             "name": "Run Current File",
             "type": "debugpy",
@@ -13,12 +12,24 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Run Test Harness",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "testharness.py",
+            "console": "integratedTerminal",
+            "env": {
+                "MIPS_ATLAS_CONFIG": "48e1dd94-36a5-4b28-85f1-cae0d108d083:pr3:us-west-2"
+            }
+        },
+        {
             "name": "Run Config Command",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "atlasexplorer.py",
             "console": "integratedTerminal",
-            "args": ["configure"]
+            "args": [
+                "configure"
+            ]
         }
     ]
 }

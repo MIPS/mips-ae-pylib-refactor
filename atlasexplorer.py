@@ -18,10 +18,10 @@ class AtlasExplorer:
 
         if "MIPS_ATLAS_CONFIG" in os.environ:
             envvarval = os.environ["MIPS_ATLAS_CONFIG"]
-            data = json.load(envvarval)
-            self.apikey = data["apikey"]
-            self.channel = data["channel"]
-            self.region = data["region"]
+            data = envvarval.split(":")
+            self.apikey = data[0]
+            self.channel = data[1]
+            self.region = data[2]
             self.setGWbyChannelRegion()
         else:
             # file first,
@@ -345,23 +345,28 @@ def configure(args):
             "region": regionanswer["region"],
         }
 
-        print("storing your configuration in home directory")
+        print("Storing your configuration in home directory")
         home_dir = os.path.expanduser("~")
         print(home_dir)
         if not os.path.exists(home_dir + "/.config/mips"):
             os.mkdir(home_dir + "/.config/mips")
 
-        configdir = home_dir + "/.config/mips/atlastpy/"
+        configdir = home_dir + "/.config/mips/atlaspy/"
         if not os.path.exists(configdir):
             os.mkdir(configdir)
 
-        with open(configdir + "/config.json", "w") as f:
+        config_dir = os.path.join(home_dir, ".config", "mips", "atlaspy")
+        config_file = os.path.join(config_dir, "config.json")
+
+        os.makedirs(config_dir)
+        with open(config_file, "w") as f:
             json.dump(config, f, indent=4)
 
+        print("Your configuration details are stored here:\n   " + config_file)
+        print("For CI you may set an enviroment variable:")
         print(
-            "If you wish, you may set a enviroment variable 'MIPS_ATLAS_CONFIG' to the following string: "
+            f"   MIPS_ATLAS_CONFIG = {config['apikey']}:{config['channel']}:{config['region']}"
         )
-        print(config)
     else:
         print("invalid api key")
 

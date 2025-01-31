@@ -69,34 +69,23 @@ class AtlasExplorer:
             sys.exit(1)
 
     def setRootExperimentDirectory(self, path):
+        """Sets the path where to place the results from the experiments you run"""
         self.rootpath = path
         if not os.path.exists(path):
             os.mkdir(path)
 
-    # def getChannelList(self):
-    #    url = AtlasConstants.AE_GLOBAL_API + "/channellist"
-    #    myobj = {"apikey": self.apikey, "extversion": "0.0.24"}
+    # def validateApiKey(self):
+    #    url = AtlasConstants.AE_GLOBAL_API + "/validateapikey"
+    #    myobj = {"apikey": self.config.apikey}
     #    x = requests.get(url, headers=myobj)
     #    return x.json()
 
-    def validateApiKey(self):
-        url = AtlasConstants.AE_GLOBAL_API + "/validateapikey"
-        myobj = {"apikey": self.config.apikey}
-        x = requests.get(url, headers=myobj)
-        return x.json()
-
-    # def getUserValid(self):
-    #    url = AtlasConstants.AE_GLOBAL_API + "/user"
-    #    myobj = {"apikey": self.apikey}
-    #    x = requests.get(url, headers=myobj)
-    #    return x.status_code == 200
-
-    def uploadConfig(self, url, content):
+    def __uploadConfig(self, url, content):
         print("uploading config")
         resp = requests.put(url, data=content)
         return resp.content
 
-    def uploadElfFile(self, url, elfPath):
+    def __uploadElfFile(self, url, elfPath):
         print("uploading elf file")
         with open(elfPath, "rb") as f:
             file_content = f.read()
@@ -108,23 +97,23 @@ class AtlasExplorer:
         resp = requests.put(url, data=file_content, headers=headersObj)
         return resp.content
 
-    def getStatus(self, url):
+    def __getStatus(self, url):
         x = requests.get(url)
         return x.json()
 
-    def downloadBinaryFile(self, url, targetPath, targetFile):
+    def __downloadBinaryFile(self, url, targetPath, targetFile):
         response = requests.get(url, stream=True)
         with open(targetPath + "/" + targetFile, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 f.write(chunk)
 
-    def downloadTextFile(self, url, targetFile):
-        response = requests.get(url, stream=True)
-        with open(targetFile, "w") as f:
-            f.write(response.text)
+    # def __downloadTextFile(self, url, targetFile):
+    #    response = requests.get(url, stream=True)
+    #    with open(targetFile, "w") as f:
+    #        f.write(response.text)
 
     # returns signed urls for report/statusget, grrput
-    def creatReport(self, reporttype, expconfig, datetime):
+    def __creatReport(self, reporttype, expconfig, datetime):
         print("creating report " + reporttype)
         formatted_string = datetime.strftime("%y%m%d-%H%M%S")
         reportuuid = formatted_string + "_" + str(uuid.uuid4())
@@ -167,7 +156,7 @@ class AtlasExplorer:
 
         # upload report cfg file,
         print("uploading report config")
-        uploadReportResp = self.uploadConfig(reportCfgURL, reportConfigJson)
+        uploadReportResp = self.__uploadConfig(reportCfgURL, reportConfigJson)
 
         grrDict = {
             "data": "todo timestamp",
@@ -175,12 +164,12 @@ class AtlasExplorer:
         grrJson = json.dumps(grrDict)
         # upload report request file to trigger start of report
         print("uploading report request file")
-        grrResp = self.uploadConfig(grrPutURL, grrJson)
+        grrResp = self.__uploadConfig(grrPutURL, grrJson)
         count = 0
         while count < 10:
             count += 1
             time.sleep(2)  # Pause for 1 second
-            status = self.getStatus(reportStatusURL)
+            status = self.__getStatus(reportStatusURL)
             if status["code"] == 100:
                 print("report " + reporttype + " is being generated")
             if status["code"] == 200:
@@ -194,7 +183,7 @@ class AtlasExplorer:
                     if type == "stream":
                         reportpath = self.expdir + "/" + reporttype
                         os.mkdir(reportpath)
-                        self.downloadBinaryFile(url, reportpath, name)
+                        self.__downloadBinaryFile(url, reportpath, name)
 
                 # self.downloadZSTF(zstfFileURL, elf+'.zstf')
                 # zstfsuccess = True
@@ -250,20 +239,20 @@ class AtlasExplorer:
         }
 
         configJson = json.dumps(configDict)
-        cfgresp = self.uploadConfig(cfgURL, configJson)
-        elfresp = self.uploadElfFile(elfURL, elf)
+        cfgresp = self.__uploadConfig(cfgURL, configJson)
+        elfresp = self.__uploadElfFile(elfURL, elf)
 
         count = 0
         zstfsuccess = False
         while count < 10:
             count += 1
             time.sleep(2)  # Pause for 1 second
-            status = self.getStatus(statusURL)
+            status = self.__getStatus(statusURL)
             if status["code"] == 100:
                 print("zstf file is being generated...")
             if status["code"] == 200:
                 print("zstf file is complete, downloading file now")
-                self.downloadBinaryFile(zstfFileURL, expdir, elf + ".zstf")
+                self.__downloadBinaryFile(zstfFileURL, expdir, elf + ".zstf")
                 zstfsuccess = True
                 break
             elif status["code"] == 500:
@@ -272,9 +261,9 @@ class AtlasExplorer:
 
         # kick of summary report
         if zstfsuccess:
-            self.creatReport("summary", configDict, now)
-            self.creatReport("inst_counts", configDict, now)
-            self.creatReport("inst_trace", configDict, now)
+            self.__creatReport("summary", configDict, now)
+            self.__creatReport("inst_counts", configDict, now)
+            self.__creatReport("inst_trace", configDict, now)
 
         print("experiment complete")
         return formatted_string
@@ -286,14 +275,14 @@ class AtlasExplorer:
 AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
 
-def getChannelList(apikey):
+def __getChannelList(apikey):
     url = AE_GLOBAL_API + "/channellist"
     myobj = {"apikey": apikey, "extversion": "0.0.24"}
     x = requests.get(url, headers=myobj)
     return x.json()
 
 
-def getUserValid(apikey):
+def __getUserValid(apikey):
     url = AE_GLOBAL_API + "/user"
     myobj = {"apikey": apikey}
     x = requests.get(url, headers=myobj)
@@ -321,8 +310,8 @@ def configure(args):
     answers = prompt(question_apikey)
     apikey = answers["apikey"]
 
-    if getUserValid(apikey):
-        chlist = getChannelList(apikey)["channels"]
+    if __getUserValid(apikey):
+        chlist = __getChannelList(apikey)["channels"]
         chnamellist = []
         for ch in chlist:
             chnamellist.append(ch["name"])

@@ -9,6 +9,7 @@ import os
 import sys
 import argparse
 from InquirerPy import prompt
+import tarfile
 
 
 class AtlasConstants:
@@ -56,11 +57,21 @@ class AtlasConfig:
         print("gateway has been set")
 
 
+class SummaryReport:
+    def __init__(self, jsonfile):
+        with open(jsonfile) as f:
+            self.summarydata = json.load(f)
+            perfreport = self.summarydata["Statistics"]["Summary Performance Report"]
+            self.totalcycles = perfreport["Total Cycles Consumed"]["val"]
+            i = 0
+
+
 class AtlasExplorer:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
     def __init__(self):
         # check env var,  then check file..etc.
+
         self.config = AtlasConfig()
         if not self.config.hasConfig:
             print(
@@ -70,15 +81,9 @@ class AtlasExplorer:
 
     def setRootExperimentDirectory(self, path):
         """Sets the path where to place the results from the experiments you run"""
-        self.rootpath = path
+        self.rootpath = os.path.abspath(path)
         if not os.path.exists(path):
             os.mkdir(path)
-
-    # def validateApiKey(self):
-    #    url = AtlasConstants.AE_GLOBAL_API + "/validateapikey"
-    #    myobj = {"apikey": self.config.apikey}
-    #    x = requests.get(url, headers=myobj)
-    #    return x.json()
 
     def __uploadConfig(self, url, content):
         print("uploading config")
@@ -106,11 +111,6 @@ class AtlasExplorer:
         with open(targetPath + "/" + targetFile, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 f.write(chunk)
-
-    # def __downloadTextFile(self, url, targetFile):
-    #    response = requests.get(url, stream=True)
-    #    with open(targetFile, "w") as f:
-    #        f.write(response.text)
 
     # returns signed urls for report/statusget, grrput
     def __creatReport(self, reporttype, expconfig, datetime):
@@ -192,8 +192,10 @@ class AtlasExplorer:
                 print("error generating report(s), escaping now")
                 break
 
-    # apikey, channel, action=experiment exp-uuid, workload
-    def createExperiment(self, elf, core):
+    def createExperiment(self, elf, core, unpack):
+        """Create an experiement using an elf file(path) and a selected core"""
+
+        self.unpack = unpack
         print("creating experiment")
 
         if not os.path.exists(elf):
@@ -262,10 +264,33 @@ class AtlasExplorer:
         # kick of summary report
         if zstfsuccess:
             self.__creatReport("summary", configDict, now)
-            self.__creatReport("inst_counts", configDict, now)
-            self.__creatReport("inst_trace", configDict, now)
+        # self.__creatReport("inst_counts", configDict, now)
+        # self.__creatReport("inst_trace", configDict, now)
 
-        print("experiment complete")
+        print("experiment generation complete")
+
+        if self.unpack:
+            print("Unpacking reports")
+            reportnames = ["summary", "inst_counts", "inst_trace"]
+            expdir = formatted_string
+
+            for report in reportnames:
+                print("unpacking report: " + report)
+                reporttar = os.path.join(
+                    self.rootpath, expdir, report, "report_results.tar.gz"
+                )
+                if os.path.exists(reporttar):
+                    destdir = os.path.join(self.rootpath, expdir, report)
+                    with tarfile.open(reporttar, "r:gz") as tar:
+                        tar.extractall(destdir)
+                        tar.close()
+                else:
+                    print("report does not exist!!, skipped " + report)
+
+            summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
+            if os.path.exists(summaryjson):
+                summaryreport = SummaryReport(summaryjson)
+
         return formatted_string
 
 

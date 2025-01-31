@@ -6,23 +6,26 @@ import json
 from datetime import datetime
 import time
 import os
+import sys
 import argparse
 from InquirerPy import prompt
 
 
-class AtlasExplorer:
+class AtlasConstants:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
+    CONFIG_ENVAR = "MIPS_ATLAS_CONFIG"
 
-    def __init__(self):
-        # check env var,  then check file..etc.
 
-        if "MIPS_ATLAS_CONFIG" in os.environ:
-            envvarval = os.environ["MIPS_ATLAS_CONFIG"]
+class AtlasConfig:
+    def __init__(self, readonly=False):
+        if AtlasConstants.CONFIG_ENVAR in os.environ:
+            envvarval = os.environ[AtlasConstants.CONFIG_ENVAR]
             data = envvarval.split(":")
             self.apikey = data[0]
             self.channel = data[1]
             self.region = data[2]
-            self.setGWbyChannelRegion()
+            if not readonly:
+                self.setGWbyChannelRegion()
         else:
             # file first,
             home_dir = os.path.expanduser("~")
@@ -34,9 +37,36 @@ class AtlasExplorer:
                     self.apikey = data["apikey"]
                     self.channel = data["channel"]
                     self.region = data["region"]
-                    self.setGWbyChannelRegion()
+                    self.hasConfig = True
+                    if not readonly:
+                        self.setGWbyChannelRegion()
             else:
-                print("No configuration found, please run 'configure' command")
+                self.hasConfig = False
+
+    def setGWbyChannelRegion(self):
+        print("setting up selected gateway")
+        url = AtlasConstants.AE_GLOBAL_API + "/gwbychannelregion"
+        myobj = {
+            "apikey": self.apikey,
+            "channel": self.channel,
+            "region": self.region,
+        }
+        x = requests.get(url, headers=myobj)
+        self.gateway = x.json()["endpoint"]
+        print("gateway has been set")
+
+
+class AtlasExplorer:
+    AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
+
+    def __init__(self):
+        # check env var,  then check file..etc.
+        self.config = AtlasConfig()
+        if not self.config.hasConfig:
+            print(
+                "Cloud connection is not setup. Please run `atlasexplorer.py configure`"
+            )
+            sys.exit(1)
 
     def setRootExperimentDirectory(self, path):
         self.rootpath = path
@@ -44,30 +74,22 @@ class AtlasExplorer:
             os.mkdir(path)
 
     # def getChannelList(self):
-    #    url = self.AE_GLOBAL_API + "/channellist"
+    #    url = AtlasConstants.AE_GLOBAL_API + "/channellist"
     #    myobj = {"apikey": self.apikey, "extversion": "0.0.24"}
     #    x = requests.get(url, headers=myobj)
     #    return x.json()
 
     def validateApiKey(self):
-        url = self.AE_GLOBAL_API + "/validateapikey"
-        myobj = {"apikey": self.apikey}
+        url = AtlasConstants.AE_GLOBAL_API + "/validateapikey"
+        myobj = {"apikey": self.config.apikey}
         x = requests.get(url, headers=myobj)
         return x.json()
 
     # def getUserValid(self):
-    #    url = self.AE_GLOBAL_API + "/user"
+    #    url = AtlasConstants.AE_GLOBAL_API + "/user"
     #    myobj = {"apikey": self.apikey}
     #    x = requests.get(url, headers=myobj)
     #    return x.status_code == 200
-
-    def setGWbyChannelRegion(self):
-        print("setting up selected gateway")
-        url = self.AE_GLOBAL_API + "/gwbychannelregion"
-        myobj = {"apikey": self.apikey, "channel": self.channel, "region": self.region}
-        x = requests.get(url, headers=myobj)
-        self.gateway = x.json()["endpoint"]
-        print("gateway has been set")
 
     def uploadConfig(self, url, content):
         print("uploading config")
@@ -129,10 +151,10 @@ class AtlasExplorer:
         rblob["data"] = reportConfigDict
         reportConfigJson = json.dumps(rblob)
 
-        url = self.gateway + "/createsignedurls"
+        url = self.config.gateway + "/createsignedurls"
         myobj = {
-            "apikey": self.apikey,
-            "channel": self.channel,
+            "apikey": self.config.apikey,
+            "channel": self.config.channel,
             "exp-uuid": expconfig["uuid"],
             "action": "report",
         }
@@ -200,10 +222,10 @@ class AtlasExplorer:
         os.mkdir(expdir)
         self.expdir = expdir
 
-        url = self.gateway + "/createsignedurls"
+        url = self.config.gateway + "/createsignedurls"
         myobj = {
-            "apikey": self.apikey,
-            "channel": self.channel,
+            "apikey": self.config.apikey,
+            "channel": self.config.channel,
             "exp-uuid": expuuid,
             "workload": elf,
             "core": core,
@@ -280,85 +302,90 @@ def getUserValid(apikey):
 
 def configure(args):
     """Main program"""
-    # print("this is main: " + args.login)
+
+    config = AtlasConfig(True)
+
+    defkey = ""
+    if config.hasConfig:
+        defkey = config.apikey
+
     question_apikey = [
-        {"type": "input", "name": "apikey", "message": "Enter your api key:"},
-        # {
-        #     'type': 'list',
-        #     'name': 'channel',
-        #     'message': 'Please select a channel?',
-        #     'choices': ['development', 'pr3']
-        # },
-        #  {
-        #     'type': 'list',
-        #     'name': 'region',
-        #     'message': 'Please select a region?',
-        #     'choices': ['us-west-2', 'us-east-1']
-        # }
+        {
+            "type": "input",
+            "name": "apikey",
+            "default": defkey,
+            "message": "Enter your api key:",
+        },
     ]
 
     answers = prompt(question_apikey)
+    apikey = answers["apikey"]
 
-    # myinst = AtlasExplorer(answers["apikey"])
-
-    if getUserValid(answers["apikey"]):
-        chlist = getChannelList(answers["apikey"])["channels"]
+    if getUserValid(apikey):
+        chlist = getChannelList(apikey)["channels"]
         chnamellist = []
         for ch in chlist:
             chnamellist.append(ch["name"])
 
-        question_channel = [
-            {
-                "type": "list",
-                "name": "channel",
-                "message": "Please select a channel?",
-                "choices": chnamellist,
-            }
-        ]
-        # get the channels for this user.
-        chanswer = prompt(question_channel)
+        if len(chnamellist) > 1:
+            defch = ""
+            if config.hasConfig:
+                defch = config.channel
+
+            question_channel = [
+                {
+                    "type": "list",
+                    "name": "channel",
+                    "default": defch,
+                    "message": "Please select a channel?",
+                    "choices": chnamellist,
+                }
+            ]
+            # get the channels for this user.
+            chanswer = prompt(question_channel)["channel"]
+        else:
+            chanswer = chnamellist[0]
+            print("Channel is automatically set to: " + chanswer)
 
         # get the region for the channel from the list above.
         regionlist = []
         for ch in chlist:
-            if (
-                ch["name"] == chanswer["channel"]
-            ):  # find the channel , extract regions into a list
+            if ch["name"] == chanswer:  # find the channel , extract regions into a list
                 for reg in ch["regions"]:
                     regionlist = json.loads(ch["regions"])
                     break
 
-        question_region = [
-            {
-                "type": "list",
-                "name": "region",
-                "message": "Please select a region?",
-                "choices": regionlist,
-            }
-        ]
+        if len(regionlist) > 1:
+            defreg = ""
+            if config.hasConfig:
+                defreg = config.region
 
-        regionanswer = prompt(question_region)
+            question_region = [
+                {
+                    "type": "list",
+                    "name": "region",
+                    "default": defreg,
+                    "message": "Please select a region?",
+                    "choices": regionlist,
+                }
+            ]
+
+            regionanswer = prompt(question_region)["region"]
+        else:
+            regionanswer = regionlist[0]
+            print("Region is automatically set to: " + regionanswer)
 
         config = {
-            "apikey": answers["apikey"],
-            "channel": chanswer["channel"],
-            "region": regionanswer["region"],
+            "apikey": apikey,
+            "channel": chanswer,
+            "region": regionanswer,
         }
 
-        print("Storing your configuration in home directory")
         home_dir = os.path.expanduser("~")
-        print(home_dir)
-        if not os.path.exists(home_dir + "/.config/mips"):
-            os.mkdir(home_dir + "/.config/mips")
-
-        configdir = home_dir + "/.config/mips/atlaspy/"
-        if not os.path.exists(configdir):
-            os.mkdir(configdir)
-
         config_dir = os.path.join(home_dir, ".config", "mips", "atlaspy")
         config_file = os.path.join(config_dir, "config.json")
 
-        os.makedirs(config_dir)
+        os.makedirs(config_dir, exist_ok=True)
         with open(config_file, "w") as f:
             json.dump(config, f, indent=4)
 
@@ -367,8 +394,9 @@ def configure(args):
         print(
             f"   MIPS_ATLAS_CONFIG = {config['apikey']}:{config['channel']}:{config['region']}"
         )
+        print("You have your Atlas and are ready to go Exploring!")
     else:
-        print("invalid api key")
+        print("Invalid API Key")
 
 
 def subcmd_configure(subparsers):

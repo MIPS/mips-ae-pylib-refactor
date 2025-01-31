@@ -18,7 +18,7 @@
             "program": "testharness.py",
             "console": "integratedTerminal",
             "env": {
-                "MIPS_ATLAS_CONFIG": "48e1dd94-36a5-4b28-85f1-cae0d108d083:pr3:us-west-2"
+                "_MIPS_ATLAS_CONFIG": "48e1dd94-36a5-4b28-85f1-cae0d108d083:pr3:us-west-2"
             }
         },
         {

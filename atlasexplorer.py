@@ -85,6 +85,16 @@ class AtlasExplorer:
         if not os.path.exists(path):
             os.mkdir(path)
 
+    def __checkWorkerStatus(self):
+        print("Checking worker status")
+        myobj = {
+            "apikey": self.config.apikey,
+            "channel": self.config.channel,
+            "region": self.config.region,
+        }
+        resp = requests.get(self.config.gateway + "/dataworkerstatus", headers=myobj)
+        return resp.json()
+
     def __uploadConfig(self, url, content):
         print("uploading config")
         resp = requests.put(url, data=content)
@@ -202,6 +212,11 @@ class AtlasExplorer:
             print("elf does not exist, please check path")
             return
 
+        """check worker status"""
+        workerstatus = self.__checkWorkerStatus()
+        if workerstatus["status"] is False:
+            print("atlas explorer service is down, please try later")
+            return
         # todo check core value
         # generate exp uuid,
         now = datetime.now()  # Get current datetime

@@ -25,6 +25,7 @@ class AtlasConfig:
             self.apikey = data[0]
             self.channel = data[1]
             self.region = data[2]
+            self.hasConfig = True
             if not readonly:
                 self.setGWbyChannelRegion()
         else:

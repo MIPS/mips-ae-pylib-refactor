@@ -124,7 +124,7 @@ class AtlasExplorer:
                 f.write(chunk)
 
     # returns signed urls for report/statusget, grrput
-    def __creatReport(self, reporttype, expconfig, datetime):
+    def __creatReportNested(self, reporttype, expconfig, datetime):
         print("creating report " + reporttype)
         formatted_string = datetime.strftime("%y%m%d-%H%M%S")
         reportuuid = formatted_string + "_" + str(uuid.uuid4())
@@ -147,61 +147,7 @@ class AtlasExplorer:
             "pluginVersion": "0.0.53",  # ext version
         }
 
-        rblob = {}
-        rblob["data"] = reportConfigDict
-        reportConfigJson = json.dumps(rblob)
-
-        url = self.config.gateway + "/createsignedurls"
-        myobj = {
-            "apikey": self.config.apikey,
-            "channel": self.config.channel,
-            "exp-uuid": expconfig["uuid"],
-            "action": "report",
-        }
-        resp = requests.post(
-            url, json=reportConfigDict, headers=myobj
-        )  # fetch the presigned url
-        reportCfgURL = resp.json()["reporturl"]
-        reportStatusURL = resp.json()["statusget"]
-        grrPutURL = resp.json()["grrput"]
-
-        # upload report cfg file,
-        print("uploading report config")
-        uploadReportResp = self.__uploadConfig(reportCfgURL, reportConfigJson)
-
-        grrDict = {
-            "data": "todo timestamp",
-        }
-        grrJson = json.dumps(grrDict)
-        # upload report request file to trigger start of report
-        print("uploading report request file")
-        grrResp = self.__uploadConfig(grrPutURL, grrJson)
-        count = 0
-        while count < 10:
-            count += 1
-            time.sleep(2)  # Pause for 1 second
-            status = self.__getStatus(reportStatusURL)
-            if status["code"] == 100:
-                print("report " + reporttype + " is being generated")
-            if status["code"] == 200:
-                print("report " + reporttype + " is ready")
-                # down load results
-                for report in status["metadata"]["reports"]:
-                    name = report["name"]
-                    url = report["url"]
-                    type = report["type"]
-
-                    if type == "stream":
-                        reportpath = self.expdir + "/" + reporttype
-                        os.mkdir(reportpath)
-                        self.__downloadBinaryFile(url, reportpath, name)
-
-                # self.downloadZSTF(zstfFileURL, elf+'.zstf')
-                # zstfsuccess = True
-                break
-            elif status["code"] == 500:
-                print("error generating report(s), escaping now")
-                break
+        return reportConfigDict
 
     def createExperiment(self, elf, core, unpack):
         """Create an experiement using an elf file(path) and a selected core"""
@@ -243,7 +189,7 @@ class AtlasExplorer:
         cfgURL = resp.json()["cfgurl"]
         elfURL = resp.json()["elfurl"]
         statusURL = resp.json()["statusget"]
-        zstfFileURL = resp.json()["zstffile"]
+        # zstfFileURL = resp.json()["zstffile"]
 
         configDict = {
             "core": core,
@@ -254,7 +200,12 @@ class AtlasExplorer:
             "toolsVersion": "latest",
             "timeout": 300,
             "pluginVersion": "0.0.53",  # ext version
+            # "reports": [sumreport],
         }
+        sumreport = self.__creatReportNested("summary", configDict, now)
+
+        # Add an element to the existing configDict
+        configDict["reports"] = [sumreport]
 
         configJson = json.dumps(configDict)
         cfgresp = self.__uploadConfig(cfgURL, configJson)
@@ -267,41 +218,39 @@ class AtlasExplorer:
             time.sleep(2)  # Pause for 1 second
             status = self.__getStatus(statusURL)
             if status["code"] == 100:
-                print("zstf file is being generated...")
+                print("experiment is being generated")
             if status["code"] == 200:
-                print("zstf file is complete, downloading file now")
-                self.__downloadBinaryFile(zstfFileURL, expdir, elf + ".zstf")
-                zstfsuccess = True
+                print("experiment is ready to downloading now")
+                print("report " + "summary" + " is ready")
+                # down load results
+                result = status["metadata"]["result"]
+                name = result["name"]
+                url = result["url"]
+                type = result["type"]
+
+                if type == "stream":
+                    #  reportpath = self.expdir + "/"  # + "summary"
+                    #  os.mkdir(reportpath)
+                    self.__downloadBinaryFile(url, self.expdir, name)
                 break
             elif status["code"] == 500:
-                print("error genterating zstf, escaping now")
+                print("error generating experiment, escaping now")
                 break
-
-        # kick of summary report
-        if zstfsuccess:
-            self.__creatReport("summary", configDict, now)
-        # self.__creatReport("inst_counts", configDict, now)
-        # self.__creatReport("inst_trace", configDict, now)
-
-        print("experiment generation complete")
 
         if self.unpack:
             print("Unpacking reports")
-            reportnames = ["summary", "inst_counts", "inst_trace"]
             expdir = formatted_string
 
-            for report in reportnames:
-                print("unpacking report: " + report)
-                reporttar = os.path.join(
-                    self.rootpath, expdir, report, "report_results.tar.gz"
-                )
-                if os.path.exists(reporttar):
-                    destdir = os.path.join(self.rootpath, expdir, report)
-                    with tarfile.open(reporttar, "r:gz") as tar:
-                        tar.extractall(destdir)
-                        tar.close()
-                else:
-                    print("report does not exist!!, skipped " + report)
+            # for report in reportnames:
+            # print("unpacking reports: " + report)
+            reporttar = os.path.join(self.rootpath, expdir, "report_results.tar.gz")
+            if os.path.exists(reporttar):
+                destdir = os.path.join(self.rootpath, expdir)
+                with tarfile.open(reporttar, "r:gz") as tar:
+                    tar.extractall(destdir)
+                    tar.close()
+            else:
+                print("report does not exist!!, skipped ")
 
             summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
             if os.path.exists(summaryjson):

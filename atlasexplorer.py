@@ -203,16 +203,18 @@ class AtlasExplorer:
             # "reports": [sumreport],
         }
         sumreport = self.__creatReportNested("summary", configDict, now)
+        instcountreport = self.__creatReportNested("inst_counts", configDict, now)
+        insttracereport = self.__creatReportNested("inst_trace", configDict, now)
 
         # Add an element to the existing configDict
-        configDict["reports"] = [sumreport]
+        configDict["reports"] = [sumreport, instcountreport, insttracereport]
 
         configJson = json.dumps(configDict)
         cfgresp = self.__uploadConfig(cfgURL, configJson)
         elfresp = self.__uploadElfFile(elfURL, elf)
 
         count = 0
-        zstfsuccess = False
+
         while count < 10:
             count += 1
             time.sleep(2)  # Pause for 1 second

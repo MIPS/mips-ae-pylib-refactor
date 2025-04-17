@@ -11,6 +11,8 @@ import argparse
 from InquirerPy import prompt
 import tarfile
 
+API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
+
 
 class AtlasConstants:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
@@ -268,8 +270,9 @@ AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
 
 def __getChannelList(apikey):
+    global API_EXT_VERSION
     url = AE_GLOBAL_API + "/channellist"
-    myobj = {"apikey": apikey, "extversion": "0.0.24"}
+    myobj = {"apikey": apikey, "extversion": API_EXT_VERSION}
     x = requests.get(url, headers=myobj)
     return x.json()
 

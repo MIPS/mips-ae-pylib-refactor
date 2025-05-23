@@ -11,7 +11,7 @@ myinst = atlasexplorer.AtlasExplorer()
 myinst.setRootExperimentDirectory("myexperiments")
 # run an experiment with "reports" against your elf / core selelection
 # retturns exp sub dir name
-expdir = myinst.createExperiment("mandelbrot_O0.elf", "I8500", True)
+expdir = myinst.createExperiment("mandelbrot_rv64_O0.elf", "I8500", True)
 if expdir is None:
     print("error creating experiment! Check your setup")
     sys.exit(1)

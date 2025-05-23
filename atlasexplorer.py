@@ -10,6 +10,17 @@ import sys
 import argparse
 from InquirerPy import prompt
 import tarfile
+from Crypto.Cipher import AES
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Random import get_random_bytes
+from pathlib import Path
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
@@ -98,21 +109,17 @@ class AtlasExplorer:
         resp = requests.get(self.config.gateway + "/dataworkerstatus", headers=myobj)
         return resp.json()
 
-    def __uploadConfig(self, url, content):
-        print("uploading config")
-        resp = requests.put(url, data=content)
-        return resp.content
+    def __uploadExpPackage(self, url, content):
+        print("uploading experiment package")
 
-    def __uploadElfFile(self, url, elfPath):
-        print("uploading elf file")
-        with open(elfPath, "rb") as f:
-            file_content = f.read()
-
-        headersObj = {
+        headers = {
             "Content-Type": "application/octet-stream",
-            "Content-Length": str(len(file_content)),
+            "Content-Length": str(
+                os.path.getsize(content) if isinstance(content, str) else len(content)
+            ),
         }
-        resp = requests.put(url, data=file_content, headers=headersObj)
+        with open(content, "rb") if isinstance(content, str) else content as data:
+            resp = requests.put(url, data=data, headers=headers)
         return resp.content
 
     def __getStatus(self, url):
@@ -124,6 +131,63 @@ class AtlasExplorer:
         with open(targetPath + "/" + targetFile, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 f.write(chunk)
+
+    def __hybrid_encrypt(self, public_key_pem: str, input_file: str):
+        try:
+            # Read the public key from PEM file
+            public_key = serialization.load_pem_public_key(
+                public_key_pem.encode(),  # Convert the string to bytes
+                backend=default_backend(),
+            )
+
+            input_path = Path(input_file)
+            output_file = input_path.with_name("temp.enc")
+
+            # Read file data
+            with open(input_file, "rb") as f:
+                file_data = f.read()
+
+            # Generate random AES key and IV
+            symmetric_key = get_random_bytes(32)  # 256 bits
+            iv = get_random_bytes(16)
+
+            cipher = Cipher(
+                algorithms.AES(symmetric_key), modes.GCM(iv), backend=default_backend()
+            )
+            encryptor = cipher.encryptor()
+
+            # Encrypt the file data
+            encrypted_data = encryptor.update(file_data) + encryptor.finalize()
+            # Get the authentication tag (required for GCM mode)
+            auth_tag = encryptor.tag
+
+            public_key = serialization.load_pem_public_key(
+                public_key_pem.encode("utf-8"), backend=default_backend()
+            )
+
+            # Encrypt the symmetric key with the recipient's public key
+            encrypted_symmetric_key = public_key.encrypt(
+                symmetric_key,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None,
+                ),
+            )
+
+            # Prepend IV, encrypted symmetric key, and authentication tag to the encrypted data
+            output_buffer = iv + encrypted_symmetric_key + auth_tag + encrypted_data
+
+            with open(output_file, "wb") as f:
+                f.write(output_buffer)
+
+            os.remove(input_file)
+            os.rename(output_file, input_file)
+
+            print("File encrypted using hybrid approach.")
+
+        except Exception as error:
+            print("Encryption error:", error)
 
     # returns signed urls for report/statusget, grrput
     def __creatReportNested(self, reporttype, expconfig, datetime):
@@ -137,7 +201,7 @@ class AtlasExplorer:
             "reportUUID": reportuuid,
             "expUUID": expconfig["uuid"],  # expuuid,
             "core": expconfig["core"],
-            "elf": expconfig["elf"],
+            "elf": expconfig["workload"],
             "reportName": reporttype,
             "reportType": reporttype,
             "userParameters": [],
@@ -146,7 +210,9 @@ class AtlasExplorer:
             "resolution": 1,
             "toolsVersion": "latest",
             "timeout": 300,
-            "pluginVersion": "0.0.53",  # ext version
+            "pluginVersion": "0.0.87",
+            "isROIReport": False,
+            "region": 0,
         }
 
         return reportConfigDict
@@ -177,6 +243,41 @@ class AtlasExplorer:
         os.mkdir(expdir)
         self.expdir = expdir
 
+        # generate a config file and write it out.
+        configDict = {
+            "core": core,
+            "elf": elf,
+            "workload": elf,
+            "uuid": expuuid,
+            "toolsVersion": "latest",
+            "timeout": 300,
+            "pluginVersion": "0.0.87",  # ext version
+            "compiler": "",
+            "compilerFlags": "",
+            "numRegions": 0,
+            "reports": [],
+            "heartbeat": "104723",
+            "iss": "esesc",  # or 'imperas'
+            "apikey": "",
+            "geolocation": {},
+        }
+
+        sumreport = self.__creatReportNested("summary", configDict, now)
+        instcountreport = self.__creatReportNested("inst_counts", configDict, now)
+        insttracereport = self.__creatReportNested("inst_trace", configDict, now)
+
+        configDict["reports"] = [sumreport, instcountreport, insttracereport]
+        configDict["apikey"] = self.config.apikey
+
+        with open(os.path.join(expdir, "config.json"), "w") as f:
+            json.dump(configDict, f, indent=4)
+
+        # Create a tar.gz file containing config.json and elf
+        workload_tar_path = os.path.join(expdir, "workload.exp")
+        with tarfile.open(workload_tar_path, "w:gz") as tar:
+            tar.add(os.path.join(expdir, "config.json"), arcname="config.json")
+            tar.add(elf, arcname=os.path.basename(elf))
+
         url = self.config.gateway + "/createsignedurls"
         myobj = {
             "apikey": self.config.apikey,
@@ -188,35 +289,16 @@ class AtlasExplorer:
         }
         resp = requests.post(url, headers=myobj)  # fetch the presigned url
 
-        cfgURL = resp.json()["cfgurl"]
-        elfURL = resp.json()["elfurl"]
+        packageURL = resp.json()["exppackageurl"]
+        publicKey = resp.json()["publicKey"]
         statusURL = resp.json()["statusget"]
-        # zstfFileURL = resp.json()["zstffile"]
 
-        configDict = {
-            "core": core,
-            "elf": elf,
-            "uuid": expuuid,
-            "localISS": False,
-            "localSimulator": False,
-            "toolsVersion": "latest",
-            "timeout": 300,
-            "pluginVersion": "0.0.53",  # ext version
-            # "reports": [sumreport],
-        }
-        sumreport = self.__creatReportNested("summary", configDict, now)
-        instcountreport = self.__creatReportNested("inst_counts", configDict, now)
-        insttracereport = self.__creatReportNested("inst_trace", configDict, now)
+        self.__hybrid_encrypt(publicKey, workload_tar_path)
 
-        # Add an element to the existing configDict
-        configDict["reports"] = [sumreport, instcountreport, insttracereport]
-
-        configJson = json.dumps(configDict)
-        cfgresp = self.__uploadConfig(cfgURL, configJson)
-        elfresp = self.__uploadElfFile(elfURL, elf)
-
+        cfgresp = self.__uploadExpPackage(packageURL, workload_tar_path)
         count = 0
-
+        # check the status of the experiment
+        # 10 times, 2 sec apart
         while count < 10:
             count += 1
             time.sleep(2)  # Pause for 1 second
@@ -236,6 +318,8 @@ class AtlasExplorer:
                     #  reportpath = self.expdir + "/"  # + "summary"
                     #  os.mkdir(reportpath)
                     self.__downloadBinaryFile(url, self.expdir, name)
+                break
+            elif status["code"] == 404:
                 break
             elif status["code"] == 500:
                 print("error generating experiment, escaping now")

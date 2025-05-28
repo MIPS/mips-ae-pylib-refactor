@@ -21,6 +21,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import scrypt
+import hashlib
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
@@ -189,6 +192,40 @@ class AtlasExplorer:
         except Exception as error:
             print("Encryption error:", error)
 
+    def __decrypt_file_with_password(self, src_file_path: str, password: str):
+        try:
+            # Step 1: Read the encrypted file
+            with open(src_file_path, "rb") as f:
+                encrypted_data = f.read()
+
+            # Step 2: Derive a 256-bit key from the password
+            key = scrypt(password.encode(), salt=b"salt", key_len=32, N=16384, r=8, p=1)
+
+            # Step 3: Create a decipher instance (AES-256-ECB mode, no IV)
+            cipher = AES.new(key, AES.MODE_ECB)
+
+            # Step 4: Decrypt the file data (remove PKCS#7 padding)
+            decrypted_data = cipher.decrypt(encrypted_data)
+            pad_len = decrypted_data[-1]
+            if pad_len < 1 or pad_len > 16:
+                raise ValueError("Invalid padding length.")
+            decrypted_data = decrypted_data[:-pad_len]
+
+            # Step 5: Write the decrypted data to a new file
+            decrypted_file_path = src_file_path + ".decrypted"
+            with open(decrypted_file_path, "wb") as f:
+                f.write(decrypted_data)
+
+            # Delete the encrypted file
+            os.remove(src_file_path)
+            # Rename the decrypted file to the original file name
+            os.rename(decrypted_file_path, src_file_path)
+        except Exception as error:
+            print("Decryption error:", error)
+            raise Exception(
+                "Decryption failed. Please check the password and try again."
+            )
+
     # returns signed urls for report/statusget, grrput
     def __creatReportNested(self, reporttype, expconfig, datetime):
         print("creating report " + reporttype)
@@ -244,7 +281,7 @@ class AtlasExplorer:
         self.expdir = expdir
 
         # generate a config file and write it out.
-        configDict = {
+        experimentConfigDict = {
             "core": core,
             "elf": elf,
             "workload": elf,
@@ -260,17 +297,23 @@ class AtlasExplorer:
             "iss": "esesc",  # or 'imperas'
             "apikey": "",
             "geolocation": {},
+            "otp": "".join([chr(x) for x in get_random_bytes(32)]),
+            "version": "1.0.0",
         }
 
-        sumreport = self.__creatReportNested("summary", configDict, now)
-        instcountreport = self.__creatReportNested("inst_counts", configDict, now)
-        insttracereport = self.__creatReportNested("inst_trace", configDict, now)
+        sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
+        instcountreport = self.__creatReportNested(
+            "inst_counts", experimentConfigDict, now
+        )
+        insttracereport = self.__creatReportNested(
+            "inst_trace", experimentConfigDict, now
+        )
 
-        configDict["reports"] = [sumreport, instcountreport, insttracereport]
-        configDict["apikey"] = self.config.apikey
+        experimentConfigDict["reports"] = [sumreport, instcountreport, insttracereport]
+        experimentConfigDict["apikey"] = self.config.apikey
 
         with open(os.path.join(expdir, "config.json"), "w") as f:
-            json.dump(configDict, f, indent=4)
+            json.dump(experimentConfigDict, f, indent=4)
 
         # Create a tar.gz file containing config.json and elf
         workload_tar_path = os.path.join(expdir, "workload.exp")
@@ -304,10 +347,9 @@ class AtlasExplorer:
             time.sleep(2)  # Pause for 1 second
             status = self.__getStatus(statusURL)
             if status["code"] == 100:
-                print("experiment is being generated")
+                print("experiment is being generated.....")
             if status["code"] == 200:
-                print("experiment is ready to downloading now")
-                print("report " + "summary" + " is ready")
+                print("experiment is ready, downloading now")
                 # down load results
                 result = status["metadata"]["result"]
                 name = result["name"]
@@ -326,13 +368,18 @@ class AtlasExplorer:
                 break
 
         if self.unpack:
-            print("Unpacking reports")
+            print("Preparing download")
             expdir = formatted_string
 
             # for report in reportnames:
             # print("unpacking reports: " + report)
             reporttar = os.path.join(self.rootpath, expdir, "report_results.tar.gz")
             if os.path.exists(reporttar):
+                print("Decrypting report package")
+                self.__decrypt_file_with_password(
+                    reporttar, experimentConfigDict["otp"]
+                )
+                print("Unpackaing report package")
                 destdir = os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)

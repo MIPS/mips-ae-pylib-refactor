@@ -1,0 +1,12 @@
+[project]
+name = "mips-ae-pylib"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=45.0.3",
+    "inquirerpy>=0.3.4",
+    "pycryptodome>=3.23.0",
+    "requests>=2.32.4",
+]

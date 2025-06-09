@@ -11,19 +11,13 @@ import argparse
 from InquirerPy import prompt
 import tarfile
 from Crypto.Cipher import AES
-from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Random import get_random_bytes
 from pathlib import Path
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import scrypt
-import hashlib
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
@@ -47,7 +41,7 @@ class AtlasConfig:
         else:
             # file first,
             home_dir = os.path.expanduser("~")
-            path_parts = [home_dir, ".config", "mips", "atlastpy", "config.json"]
+            path_parts = [home_dir, ".config", "mips", "atlaspy", "config.json"]
             configfile = os.path.join(*path_parts)
             if os.path.exists(configfile):
                 with open(configfile) as f:
@@ -229,12 +223,12 @@ class AtlasExplorer:
     # returns signed urls for report/statusget, grrput
     def __creatReportNested(self, reporttype, expconfig, datetime):
         print("creating report " + reporttype)
-        formatted_string = datetime.strftime("%y%m%d-%H%M%S")
-        reportuuid = formatted_string + "_" + str(uuid.uuid4())
+        # formatted_string = datetime.strftime("%y%m%d_%H%M%S")
+        reportuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
         print("reportUUID: " + reportuuid)
 
         reportConfigDict = {
-            "startDate": formatted_string,
+            "startDate": self.experiment_timestamp,
             "reportUUID": reportuuid,
             "expUUID": expconfig["uuid"],  # expuuid,
             "core": expconfig["core"],
@@ -254,9 +248,26 @@ class AtlasExplorer:
 
         return reportConfigDict
 
-    def createExperiment(self, elf, core, unpack):
-        """Create an experiement using an elf file(path) and a selected core"""
+    def createExperiment(self, elf, core, expname=None, unpack=True):
+        """Creates an experiment with the given elf and core.
+        elf: path to the elf file
+        core: core name, e.g. I8500, P8500, etc.
+        expname: name of the experiment, if None, it will be generated from the elf file name and timestamp
+        unpack: if True, unpack the reports after the experiment is created
+        """
 
+        now = datetime.now()  # Get current datetime
+        self.experiment_timestamp = now.strftime("%y%m%d_%H%M%S")
+
+        if expname is None:
+            expname = (
+                os.path.splitext(os.path.basename(elf))[0]
+                + "_"
+                + self.experiment_timestamp
+            )
+        print("experiment name is set to: " + expname)
+
+        self.expname = expname
         self.unpack = unpack
         print("creating experiment")
 
@@ -271,12 +282,11 @@ class AtlasExplorer:
             return
         # todo check core value
         # generate exp uuid,
-        now = datetime.now()  # Get current datetime
-        formatted_string = now.strftime("%y%m%d-%H%M%S")
-        expuuid = formatted_string + "_" + str(uuid.uuid4())
+
+        expuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
         print("expUUID: " + expuuid)
 
-        expdir = os.path.join(self.rootpath, formatted_string)
+        expdir = os.path.join(self.rootpath, expname)
         os.mkdir(expdir)
         self.expdir = expdir
 
@@ -286,7 +296,7 @@ class AtlasExplorer:
         date_string = now.strftime("%y%m%d_%H%M%S")
         experimentConfigDict = {
             "date": date_string,
-            "name": "mandelbrot_test_6_9_25_A",
+            "name": expname,
             "core": core,
             "elf": elf,
             "workload": elf,
@@ -369,7 +379,10 @@ class AtlasExplorer:
                 if type == "stream":
                     #  reportpath = self.expdir + "/"  # + "summary"
                     #  os.mkdir(reportpath)
-                    self.__downloadBinaryFile(url, self.expdir, name)
+                    self.__downloadBinaryFile(
+                        url, self.expdir, self.expname + ".tar.gz"
+                    )
+
                 break
             elif status["code"] == 404:
                 break
@@ -379,31 +392,29 @@ class AtlasExplorer:
 
         if self.unpack:
             print("Preparing download")
-            expdir = formatted_string
+            expdir = expname
 
             # for report in reportnames:
             # print("unpacking reports: " + report)
-            reporttar = os.path.join(
-                self.rootpath, expdir, experimentConfigDict["name"] + ".tar.gz"
-            )
+            reporttar = os.path.join(self.rootpath, expdir, self.expname + ".tar.gz")
             if os.path.exists(reporttar):
-                print("Decrypting report package")
+                print("Decrypting package")
                 self.__decrypt_file_with_password(
                     reporttar, experimentConfigDict["otp"]
                 )
-                print("Unpackaing report package")
+                print("Unpacking package")
                 destdir = os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)
                     tar.close()
             else:
-                print("report does not exist!!, skipped ")
+                print("package does not exist!!, skipped: " + reporttar)
 
             summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
             if os.path.exists(summaryjson):
                 summaryreport = SummaryReport(summaryjson)
 
-        return formatted_string
+        return self.expdir
 
 
 # # end class def

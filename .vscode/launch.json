@@ -7,13 +7,15 @@
         {
             "name": "Run Current File",
             "type": "debugpy",
+            "python": ".venv/bin/python3",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
         },
         {
-            "name": "Run Test Harness",
+            "name": "Debug Test Harness",
             "type": "debugpy",
+            "python": ".venv/bin/python3",
             "request": "launch",
             "program": "testharness.py",
             "console": "integratedTerminal",
@@ -25,6 +27,7 @@
             "name": "Run Config Command",
             "type": "debugpy",
             "request": "launch",
+            "python": ".venv/bin/python3",
             "program": "atlasexplorer.py",
             "console": "integratedTerminal",
             "args": [

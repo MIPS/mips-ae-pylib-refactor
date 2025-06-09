@@ -281,7 +281,10 @@ class AtlasExplorer:
         self.expdir = expdir
 
         # generate a config file and write it out.
+        date_string = now.strftime("%y%m%d_%H%M%S")
         experimentConfigDict = {
+            "date": date_string,
+            "name": "mandelbrot_test_6_9_25",
             "core": core,
             "elf": elf,
             "workload": elf,
@@ -299,6 +302,11 @@ class AtlasExplorer:
             "geolocation": {},
             "otp": "".join([chr(x) for x in get_random_bytes(32)]),
             "version": "1.0.0",
+            "arch": {
+                "num_threads": 1,
+            },
+            "elfPath": "",
+            "clientType": "python",
         }
 
         sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
@@ -373,7 +381,9 @@ class AtlasExplorer:
 
             # for report in reportnames:
             # print("unpacking reports: " + report)
-            reporttar = os.path.join(self.rootpath, expdir, "report_results.tar.gz")
+            reporttar = os.path.join(
+                self.rootpath, expdir, experimentConfigDict["name"] + ".tar.gz"
+            )
             if os.path.exists(reporttar):
                 print("Decrypting report package")
                 self.__decrypt_file_with_password(

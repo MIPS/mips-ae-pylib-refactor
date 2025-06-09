@@ -276,15 +276,17 @@ class AtlasExplorer:
         expuuid = formatted_string + "_" + str(uuid.uuid4())
         print("expUUID: " + expuuid)
 
-        expdir = self.rootpath + "/" + formatted_string
+        expdir = os.path.join(self.rootpath, formatted_string)
         os.mkdir(expdir)
         self.expdir = expdir
 
+        # Set the absolute path to the elf file
+        elfAbsPath = os.path.abspath(elf)
         # generate a config file and write it out.
         date_string = now.strftime("%y%m%d_%H%M%S")
         experimentConfigDict = {
             "date": date_string,
-            "name": "mandelbrot_test_6_9_25",
+            "name": "mandelbrot_test_6_9_25_A",
             "core": core,
             "elf": elf,
             "workload": elf,
@@ -305,7 +307,7 @@ class AtlasExplorer:
             "arch": {
                 "num_threads": 1,
             },
-            "elfPath": "",
+            "elfPath": elfAbsPath,
             "clientType": "python",
         }
 

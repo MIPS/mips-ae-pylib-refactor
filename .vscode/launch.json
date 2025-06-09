@@ -13,9 +13,20 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Debug Test Harness",
+            "name": "Debug Test Harness (Linux)",
             "type": "debugpy",
             "python": ".venv/bin/python3",
+            "request": "launch",
+            "program": "testharness.py",
+            "console": "integratedTerminal",
+            "env": {
+                "_MIPS_ATLAS_CONFIG": "48e1dd94-36a5-4b28-85f1-cae0d108d083:pr3:us-west-2"
+            }
+        },
+        {
+            "name": "Debug Test Harness (Windows)",
+            "type": "debugpy",
+            "python": ".venv/Scripts/python.exe",
             "request": "launch",
             "program": "testharness.py",
             "console": "integratedTerminal",

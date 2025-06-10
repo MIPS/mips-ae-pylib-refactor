@@ -18,9 +18,94 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from Crypto.Protocol.KDF import scrypt
+from elftools.elf.elffile import ELFFile
+import re
+import locale
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
+
+class Experiment:
+    def __init__(self, expdir):
+        self.expdir = expdir
+        self.config = None
+        self.summary = None
+        self.instcounts = None
+        self.insttrace = None
+
+        # Load the experiment configuration from config.json
+        config_path = os.path.join(expdir, "config.json")
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                self.config = json.load(f)
+
+        # Load the summary report if it exists
+        summary_path = os.path.join(expdir, "reports", "summary", "summary.json")
+        if os.path.exists(summary_path):
+            with open(summary_path) as f:
+                self.summary = SummaryReport(summary_path)
+
+    def getRoot(self):
+        """Returns the root directory of the experiment"""
+        return self.expdir
+
+    def getSummary(self):
+        """Returns the summary report of the experiment"""
+        if self.summary:
+            return self.summary
+        else:
+            print("No summary report found for this experiment.")
+            return None
+
+class SummaryReport:
+    def __init__(self, jsonfile):
+        with open(jsonfile) as f:
+            jsonData = json.load(f)
+            self.summarydata = jsonData["Statistics"]["Summary Performance Report"]
+
+            # Remove the "ordered_key" entry if it exists
+            self.summarydata.pop("ordered_keys", None)
+
+            self.totalcycles = self.summarydata["Total Cycles Consumed"]["val"]
+            self.totalinsts = self.summarydata["Total Instructions Retired"]["val"]
+            
+    def getTotalCycles(self):
+        """Returns the total cycles from the summary report"""
+        return self.totalcycles
+
+    def getTotalInstructions(self):
+        """Returns the total instructions from the summary report"""
+        return self.totalinsts
+
+    def getMetricKeys(self, regex_pattern=None):
+        """Returns a list of metric keys from the summary report, optionally filtered by regex pattern"""
+        all_keys = list(self.summarydata.keys())
+        
+        if regex_pattern is None:
+            return all_keys
+        
+        try:
+            pattern = re.compile(regex_pattern)
+            return [key for key in all_keys if pattern.search(key)]
+        except re.error:
+            print(f"Invalid regex pattern: {regex_pattern}")
+            return all_keys
+
+    def getMetricValue(self, key):
+        """Returns the value of a specific metric key from the summary report"""
+        return self.summarydata[key]["val"]
+
+    def printMetrics(self, regex_pattern=None):
+        """Prints all metrics in the summary report, optionally filtered by regex pattern"""
+        keys = self.getMetricKeys(regex_pattern)
+        locale.setlocale(locale.LC_ALL, '')
+        for key in keys:
+            value = self.getMetricValue(key)
+            try:
+                value_str = locale.format_string("%d", value, grouping=True) if isinstance(value, int) else str(value)
+            except Exception:
+                value_str = str(value)
+            print(f"{key}: {value_str}")
 
 class AtlasConstants:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
@@ -28,7 +113,8 @@ class AtlasConstants:
 
 
 class AtlasConfig:
-    def __init__(self, readonly=False):
+    def __init__(self, readonly=False, verbose=True):
+        self.verbose = verbose
         if AtlasConstants.CONFIG_ENVAR in os.environ:
             envvarval = os.environ[AtlasConstants.CONFIG_ENVAR]
             data = envvarval.split(":")
@@ -56,7 +142,8 @@ class AtlasConfig:
                 self.hasConfig = False
 
     def setGWbyChannelRegion(self):
-        print("setting up selected gateway")
+        if self.verbose:
+            print("setting up selected gateway")
         url = AtlasConstants.AE_GLOBAL_API + "/gwbychannelregion"
         myobj = {
             "apikey": self.apikey,
@@ -65,25 +152,17 @@ class AtlasConfig:
         }
         x = requests.get(url, headers=myobj)
         self.gateway = x.json()["endpoint"]
-        print("gateway has been set")
-
-
-class SummaryReport:
-    def __init__(self, jsonfile):
-        with open(jsonfile) as f:
-            self.summarydata = json.load(f)
-            perfreport = self.summarydata["Statistics"]["Summary Performance Report"]
-            self.totalcycles = perfreport["Total Cycles Consumed"]["val"]
-            i = 0
+        if self.verbose:
+            print("gateway has been set")
 
 
 class AtlasExplorer:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         # check env var,  then check file..etc.
-
-        self.config = AtlasConfig()
+        self.verbose = verbose
+        self.config = AtlasConfig(verbose=verbose)
         if not self.config.hasConfig:
             print(
                 "Cloud connection is not setup. Please run `atlasexplorer.py configure`"
@@ -97,7 +176,8 @@ class AtlasExplorer:
             os.mkdir(path)
 
     def __checkWorkerStatus(self):
-        print("Checking worker status")
+        if self.verbose:
+            print("Checking worker status")
         myobj = {
             "apikey": self.config.apikey,
             "channel": self.config.channel,
@@ -107,7 +187,8 @@ class AtlasExplorer:
         return resp.json()
 
     def __uploadExpPackage(self, url, content):
-        print("uploading experiment package")
+        if self.verbose:
+            print("uploading experiment package")
 
         headers = {
             "Content-Type": "application/octet-stream",
@@ -181,7 +262,8 @@ class AtlasExplorer:
             os.remove(input_file)
             os.rename(output_file, input_file)
 
-            print("File encrypted using hybrid approach.")
+            if self.verbose:
+                print("File encrypted using hybrid approach.")
 
         except Exception as error:
             print("Encryption error:", error)
@@ -222,10 +304,12 @@ class AtlasExplorer:
 
     # returns signed urls for report/statusget, grrput
     def __creatReportNested(self, reporttype, expconfig, datetime):
-        print("creating report " + reporttype)
+        if self.verbose:
+            print("creating report " + reporttype)
         # formatted_string = datetime.strftime("%y%m%d_%H%M%S")
         reportuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
-        print("reportUUID: " + reportuuid)
+        if self.verbose:
+            print("reportUUID: " + reportuuid)
 
         reportConfigDict = {
             "startDate": self.experiment_timestamp,
@@ -248,6 +332,90 @@ class AtlasExplorer:
 
         return reportConfigDict
 
+    def snapshotSource(self, elfPath):
+        source_files = set()
+
+        with open(elfPath, "rb") as f:
+            elffile = ELFFile(f)
+            if elffile.has_dwarf_info():
+                dwarfinfo = elffile.get_dwarf_info()
+
+                for CU in dwarfinfo.iter_CUs():
+                    # Get compilation directory from the compilation unit
+                    comp_dir = ""
+                    top_die = CU.get_top_DIE()
+                    if "DW_AT_comp_dir" in top_die.attributes:
+                        comp_dir = top_die.attributes["DW_AT_comp_dir"].value
+                        if isinstance(comp_dir, bytes):
+                            comp_dir = comp_dir.decode("utf-8")
+
+                    lineprog = dwarfinfo.line_program_for_CU(CU)
+                    if lineprog is None:
+                        continue
+
+                    # Extract file entries from line program
+                    for file_entry in lineprog["file_entry"]:
+                        filename = file_entry.name
+                        if isinstance(filename, bytes):
+                            filename = filename.decode("utf-8")
+
+                        # Get directory index and resolve directory
+                        dir_index = getattr(file_entry, "dir_index", 0)
+                        directory = ""
+
+                        if dir_index > 0 and dir_index <= len(
+                            lineprog["include_directory"]
+                        ):
+                            # Build directory by appending include_directory entries up to dir_index
+                            directory_parts = []
+                            for i in range(dir_index + 1):
+                                dir_part = lineprog["include_directory"][i]
+                                if isinstance(dir_part, bytes):
+                                    dir_part = dir_part.decode("utf-8")
+                                directory_parts.append(dir_part)
+                            directory = (
+                                os.path.join(*directory_parts)
+                                if directory_parts
+                                else ""
+                            )
+                            # directory = lineprog["include_directory"][dir_index - 1]
+                            if isinstance(directory, bytes):
+                                directory = directory.decode("utf-8")
+
+                        # Build full path
+                        if directory:
+                            if os.path.isabs(directory):
+                                full_path = os.path.join(directory, filename)
+                            elif comp_dir:
+                                full_path = os.path.join(comp_dir, directory, filename)
+                            else:
+                                full_path = os.path.join(directory, filename)
+                        elif comp_dir:
+                            full_path = os.path.join(comp_dir, filename)
+                        else:
+                            full_path = filename
+
+                        source_files.add(full_path)
+
+        # Filter for existing files only
+        if self.verbose:
+            print("Embedded source files in ELF:")
+        existing_source_files = set()
+        for src in sorted(source_files):
+            if os.path.exists(src):
+                existing_source_files.add(src)
+                if self.verbose:
+                    print(src)
+
+        return existing_source_files
+
+    def getExperiment(self, expdir):
+        """Returns an Experiment object for the given experiment directory"""
+        if not os.path.exists(expdir):
+            print("Experiment directory does not exist: " + expdir)
+            return None
+        return Experiment(expdir)
+
     def createExperiment(self, elf, core, expname=None, unpack=True):
         """Creates an experiment with the given elf and core.
         elf: path to the elf file
@@ -255,7 +423,10 @@ class AtlasExplorer:
         expname: name of the experiment, if None, it will be generated from the elf file name and timestamp
         unpack: if True, unpack the reports after the experiment is created
         """
-
+        if not os.path.exists(elf):
+            print("Error: specified elf file does not exist\nELF: " + elf)
+            sys.exit(1)
+            
         now = datetime.now()  # Get current datetime
         self.experiment_timestamp = now.strftime("%y%m%d_%H%M%S")
 
@@ -265,26 +436,23 @@ class AtlasExplorer:
                 + "_"
                 + self.experiment_timestamp
             )
-        print("experiment name is set to: " + expname)
+        if self.verbose:
+            print("experiment name is set to: " + expname)
 
         self.expname = expname
         self.unpack = unpack
-        print("creating experiment")
-
-        if not os.path.exists(elf):
-            print("elf does not exist, please check path")
-            return
+        if self.verbose:
+            print("creating experiment")
 
         """check worker status"""
         workerstatus = self.__checkWorkerStatus()
         if workerstatus["status"] is False:
-            print("atlas explorer service is down, please try later")
-            return
-        # todo check core value
-        # generate exp uuid,
+            print("Error: atlas explorer service is down, please try later")
+            sys.exit(1)
 
         expuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
-        print("expUUID: " + expuuid)
+        if self.verbose:
+            print("expUUID: " + expuuid)
 
         expdir = os.path.join(self.rootpath, expname)
         os.mkdir(expdir)
@@ -367,9 +535,11 @@ class AtlasExplorer:
             time.sleep(2)  # Pause for 1 second
             status = self.__getStatus(statusURL)
             if status["code"] == 100:
-                print("experiment is being generated.....")
+                if self.verbose:
+                    print("experiment is being generated.....")
             if status["code"] == 200:
-                print("experiment is ready, downloading now")
+                if self.verbose:
+                    print("experiment is ready, downloading now")
                 # down load results
                 result = status["metadata"]["result"]
                 name = result["name"]
@@ -391,32 +561,65 @@ class AtlasExplorer:
                 break
 
         if self.unpack:
-            print("Preparing download")
+            if self.verbose:
+                print("Preparing download")
             expdir = expname
 
             # for report in reportnames:
             # print("unpacking reports: " + report)
             reporttar = os.path.join(self.rootpath, expdir, self.expname + ".tar.gz")
             if os.path.exists(reporttar):
-                print("Decrypting package")
+                if self.verbose:
+                    print("Decrypting package")
                 self.__decrypt_file_with_password(
                     reporttar, experimentConfigDict["otp"]
                 )
-                print("Unpacking package")
-                destdir = os.path.join(self.rootpath, expdir)
+                if self.verbose:
+                    print("Unpacking package")
+                destdir = self.rootpath #os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)
                     tar.close()
             else:
                 print("package does not exist!!, skipped: " + reporttar)
 
+            # Remove any summary ROI files that are not valid.
+            self.cleanSummaries()
+
             summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
             if os.path.exists(summaryjson):
                 summaryreport = SummaryReport(summaryjson)
 
-        return self.expdir
+            # Delete the workload_tar_path file after unpacking
+            if os.path.exists(workload_tar_path):
+                os.remove(workload_tar_path)
 
+            self.snapshotSource(experimentConfigDict["elfPath"])
+        return Experiment(self.expdir)
 
+    def cleanSummaries(self):
+        """Cleans up the summary reports that are not valid"""
+        if not hasattr(self, "expdir"):
+            print("No experiment directory set, please run createExperiment first")
+            return
+
+        summarydir = os.path.join(self.expdir, "reports", "summary")
+        if not os.path.exists(summarydir):
+            print("No summary directory found")
+            return
+
+        for filename in os.listdir(summarydir):
+
+            if "_roi_" in filename and filename.endswith(".json"):
+                filepath = os.path.join(summarydir, filename)
+                with open(filepath) as f:
+                    summaryreport = SummaryReport(filepath)
+                if summaryreport.totalcycles == 0 and summaryreport.totalinsts == 0:
+                    if self.verbose:
+                        print("Deleting invalid summary report: " + filepath)
+                    os.remove(filepath)
+
+                    
 # # end class def
 
 
@@ -441,7 +644,7 @@ def __getUserValid(apikey):
 def configure(args):
     """Main program"""
 
-    config = AtlasConfig(True)
+    config = AtlasConfig(True, verbose=True)
 
     defkey = ""
     if config.hasConfig:

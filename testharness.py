@@ -8,14 +8,14 @@ locale.setlocale(locale.LC_ALL, '')
 # example use of AtlasExplorer library,
 # this assumes that user has ran the script with the "configure" arg
 # Create an instance of the class
-myinst = atlasexplorer.AtlasExplorer()
+myinst = atlasexplorer.AtlasExplorer(verbose=True)
 
 # set your root target experiment folder(where the reports will land)
 myinst.setRootExperimentDirectory("myexperiments")
 
 # run an experiment with your elf / core selelection
 # returns exp sub dir name
-experiment = myinst.createExperiment("mandelbrot_rv64_O3.elf", "V8500")
+experiment = myinst.createExperiment("mandelbrot_rv64_O3.elf", "I8500")
 if experiment.getRoot() is None:
     print("error creating experiment! Check your setup")
     sys.exit(1)

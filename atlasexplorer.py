@@ -24,7 +24,6 @@ import locale
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
-
 class Experiment:
     def __init__(self, expdir):
         self.expdir = expdir
@@ -416,6 +415,71 @@ class AtlasExplorer:
             return None
         return Experiment(expdir)
 
+    def _getCloudCaps(self, version):
+         
+        self.versionCaps = None
+        self.channelCaps = None
+        url = self.config.gateway + "/cloudcaps"
+        myobj = {
+            'Content-Type': 'application/json',
+            "apikey": self.config.apikey,
+        }
+        resp = requests.get(url, headers=myobj)
+        if resp.status_code != 200:
+            print("Error fetching cloud capabilities: " + resp.text)
+            sys.exit(1)
+
+        self.channelCaps = resp.json()
+        # print("Cloud capabilities:")
+        # print(json.dumps(resp.json(), indent=4))
+
+        # Iterate over the caps array and find the entry where "version" == version
+        if isinstance(self.channelCaps, list):
+            found = False
+            for cap in self.channelCaps:
+                if cap.get("version") == version:
+                    # print(f"Capabilities for version {version}:")
+                    # print(json.dumps(cap, indent=4))
+                    found = True
+                    self.versionCaps = cap
+                    break
+            if not found:
+                print(f"No capabilities found for version {version}")
+                sys.exit(1)
+
+        else:
+            print("Unexpected format for cloud capabilities response.")
+            sys.exit(1)
+
+    def getVersionList(self):
+        """Returns a list of available versions from the cloud capabilities"""
+        if self.channelCaps is None:
+            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
+            return []
+
+        print("Available versions in cloud capabilities:")
+        print(json.dumps(self.channelCaps, indent=4))
+        if isinstance(self.channelCaps, list):
+            return [version.get("version") for version in self.channelCaps]
+        
+        print("No architectures found in cloud capabilities.")
+        return []
+
+    def getCoreInfo(self, core):
+        if self.versionCaps is None:
+            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
+            return False
+
+        arches = self.versionCaps.get("shinro").get("arches")
+        if isinstance(arches, list):
+            for arch in arches:
+                if arch.get("name") == core:
+                    return arch
+        
+        print(f"Core {core} is not supported by the cloud capabilities.")
+        sys.exit(1)
+
+
     def createExperiment(self, elf, core, expname=None, unpack=True):
         """Creates an experiment with the given elf and core.
         elf: path to the elf file
@@ -489,6 +553,14 @@ class AtlasExplorer:
             "clientType": "python",
         }
 
+
+        self._getCloudCaps(experimentConfigDict["toolsVersion"])
+
+        versions = self.getVersionList()
+        print("Available versions: " + ", ".join(versions))
+        
+        experimentConfigDict["arch"] = self.getCoreInfo(core)
+
         sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
         instcountreport = self.__creatReportNested(
             "inst_counts", experimentConfigDict, now
@@ -500,9 +572,11 @@ class AtlasExplorer:
         experimentConfigDict["reports"] = [sumreport, instcountreport, insttracereport]
         experimentConfigDict["apikey"] = self.config.apikey
 
+        # print(json.dumps(experimentConfigDict, indent=4))
         with open(os.path.join(expdir, "config.json"), "w") as f:
             json.dump(experimentConfigDict, f, indent=4)
 
+        sys.exit(0)
         # Create a tar.gz file containing config.json and elf
         workload_tar_path = os.path.join(expdir, "workload.exp")
         with tarfile.open(workload_tar_path, "w:gz") as tar:
@@ -576,7 +650,7 @@ class AtlasExplorer:
                 )
                 if self.verbose:
                     print("Unpacking package")
-                destdir = self.rootpath #os.path.join(self.rootpath, expdir)
+                destdir = self.rootpath # os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)
                     tar.close()
@@ -584,7 +658,8 @@ class AtlasExplorer:
                 print("package does not exist!!, skipped: " + reporttar)
 
             # Remove any summary ROI files that are not valid.
-            self.cleanSummaries()
+            self.cleanSummaries("summary")
+            # self.cleanSummaries("summarythreads")
 
             summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
             if os.path.exists(summaryjson):
@@ -597,15 +672,15 @@ class AtlasExplorer:
             self.snapshotSource(experimentConfigDict["elfPath"])
         return Experiment(self.expdir)
 
-    def cleanSummaries(self):
+    def cleanSummaries(self, report):
         """Cleans up the summary reports that are not valid"""
         if not hasattr(self, "expdir"):
             print("No experiment directory set, please run createExperiment first")
             return
 
-        summarydir = os.path.join(self.expdir, "reports", "summary")
+        summarydir = os.path.join(self.expdir, "reports", report)
         if not os.path.exists(summarydir):
-            print("No summary directory found")
+            print("No report directory found:" + report)
             return
 
         for filename in os.listdir(summarydir):
@@ -616,7 +691,7 @@ class AtlasExplorer:
                     summaryreport = SummaryReport(filepath)
                 if summaryreport.totalcycles == 0 and summaryreport.totalinsts == 0:
                     if self.verbose:
-                        print("Deleting invalid summary report: " + filepath)
+                        print("Deleting invalid roi report: " + filepath)
                     os.remove(filepath)
 
                     

@@ -11,3 +11,8 @@ dependencies = [
     "pyelftools>=0.32",
     "requests>=2.32.4",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+]

@@ -24,6 +24,7 @@ import locale
 
 API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
 
+
 class Experiment:
     def __init__(self, expdir):
         self.expdir = expdir
@@ -56,6 +57,7 @@ class Experiment:
             print("No summary report found for this experiment.")
             return None
 
+
 class SummaryReport:
     def __init__(self, jsonfile):
         with open(jsonfile) as f:
@@ -67,7 +69,7 @@ class SummaryReport:
 
             self.totalcycles = self.summarydata["Total Cycles Consumed"]["val"]
             self.totalinsts = self.summarydata["Total Instructions Retired"]["val"]
-            
+
     def getTotalCycles(self):
         """Returns the total cycles from the summary report"""
         return self.totalcycles
@@ -79,10 +81,10 @@ class SummaryReport:
     def getMetricKeys(self, regex_pattern=None):
         """Returns a list of metric keys from the summary report, optionally filtered by regex pattern"""
         all_keys = list(self.summarydata.keys())
-        
+
         if regex_pattern is None:
             return all_keys
-        
+
         try:
             pattern = re.compile(regex_pattern)
             return [key for key in all_keys if pattern.search(key)]
@@ -97,14 +99,19 @@ class SummaryReport:
     def printMetrics(self, regex_pattern=None):
         """Prints all metrics in the summary report, optionally filtered by regex pattern"""
         keys = self.getMetricKeys(regex_pattern)
-        locale.setlocale(locale.LC_ALL, '')
+        locale.setlocale(locale.LC_ALL, "")
         for key in keys:
             value = self.getMetricValue(key)
             try:
-                value_str = locale.format_string("%d", value, grouping=True) if isinstance(value, int) else str(value)
+                value_str = (
+                    locale.format_string("%d", value, grouping=True)
+                    if isinstance(value, int)
+                    else str(value)
+                )
             except Exception:
                 value_str = str(value)
             print(f"{key}: {value_str}")
+
 
 class AtlasConstants:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
@@ -416,12 +423,11 @@ class AtlasExplorer:
         return Experiment(expdir)
 
     def _getCloudCaps(self, version):
-         
         self.versionCaps = None
         self.channelCaps = None
         url = self.config.gateway + "/cloudcaps"
         myobj = {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             "apikey": self.config.apikey,
         }
         resp = requests.get(url, headers=myobj)
@@ -457,11 +463,11 @@ class AtlasExplorer:
             print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
             return []
 
-        print("Available versions in cloud capabilities:")
-        print(json.dumps(self.channelCaps, indent=4))
-        if isinstance(self.channelCaps, list):
-            return [version.get("version") for version in self.channelCaps]
-        
+            # print("Available versions in cloud capabilities:")
+            # print(json.dumps(self.channelCaps, indent=4))
+            if isinstance(self.channelCaps, list):
+                return [version.get("version") for version in self.channelCaps]
+
         print("No architectures found in cloud capabilities.")
         return []
 
@@ -475,10 +481,9 @@ class AtlasExplorer:
             for arch in arches:
                 if arch.get("name") == core:
                     return arch
-        
+
         print(f"Core {core} is not supported by the cloud capabilities.")
         sys.exit(1)
-
 
     def createExperiment(self, elf, core, expname=None, unpack=True):
         """Creates an experiment with the given elf and core.
@@ -490,7 +495,7 @@ class AtlasExplorer:
         if not os.path.exists(elf):
             print("Error: specified elf file does not exist\nELF: " + elf)
             sys.exit(1)
-            
+
         now = datetime.now()  # Get current datetime
         self.experiment_timestamp = now.strftime("%y%m%d_%H%M%S")
 
@@ -553,12 +558,11 @@ class AtlasExplorer:
             "clientType": "python",
         }
 
-
         self._getCloudCaps(experimentConfigDict["toolsVersion"])
 
         versions = self.getVersionList()
         print("Available versions: " + ", ".join(versions))
-        
+
         experimentConfigDict["arch"] = self.getCoreInfo(core)
 
         sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
@@ -576,7 +580,7 @@ class AtlasExplorer:
         with open(os.path.join(expdir, "config.json"), "w") as f:
             json.dump(experimentConfigDict, f, indent=4)
 
-        sys.exit(0)
+        # sys.exit(0)
         # Create a tar.gz file containing config.json and elf
         workload_tar_path = os.path.join(expdir, "workload.exp")
         with tarfile.open(workload_tar_path, "w:gz") as tar:
@@ -650,7 +654,7 @@ class AtlasExplorer:
                 )
                 if self.verbose:
                     print("Unpacking package")
-                destdir = self.rootpath # os.path.join(self.rootpath, expdir)
+                destdir = self.rootpath  # os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)
                     tar.close()
@@ -684,7 +688,6 @@ class AtlasExplorer:
             return
 
         for filename in os.listdir(summarydir):
-
             if "_roi_" in filename and filename.endswith(".json"):
                 filepath = os.path.join(summarydir, filename)
                 with open(filepath) as f:
@@ -694,7 +697,7 @@ class AtlasExplorer:
                         print("Deleting invalid roi report: " + filepath)
                     os.remove(filepath)
 
-                    
+
 # # end class def
 
 

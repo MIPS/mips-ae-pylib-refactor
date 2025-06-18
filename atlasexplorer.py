@@ -37,6 +37,8 @@ class Experiment:
         self.summary = None
         self.instcounts = None
         self.insttrace = None
+        self.workloads = []
+        self.core = None
 
         # Load the experiment configuration from config.json
         config_path = os.path.join(expdir, "config.json")
@@ -45,11 +47,6 @@ class Experiment:
                 self.config = json.load(f)
 
         # Load the summary report if it exists
-
-    # summary_path = os.path.join(expdir, "reports", "summary", "summary.json")
-    # if os.path.exists(summary_path):
-    #     with open(summary_path) as f:
-    #         self.summary = SummaryReport(summary_path)
 
     def getRoot(self):
         """Returns the root directory of the experiment"""
@@ -268,7 +265,20 @@ class Experiment:
             return None
         return Experiment(expdir)
 
-    def createExperiment(self, workloads, core, expname=None, unpack=True):
+    def addWorkload(self, workload):
+        """Adds a workload to the experiment"""
+        if not os.path.exists(workload):
+            print(f"Error: specified elf file does not exist\nELF: {workload}")
+            sys.exit(1)
+        self.workloads.append(workload)
+
+    def setCore(self, core):
+        """Sets the core for the experiment"""
+        self.core = core
+        if self.verbose:
+            print("Core set to: " + core)
+
+    def run(self, expname=None, unpack=True):
         """Creates an experiment with the given elf and core.
         elf: path to the elf file
         core: core name, e.g. I8500, P8500, etc.
@@ -276,13 +286,13 @@ class Experiment:
         unpack: if True, unpack the reports after the experiment is created
         """
         # check if wl is a list or a single string
-        if isinstance(workloads, str):
-            workloads = [workloads]
+        # if isinstance(workloads, str):
+        #    workloads = [workloads]
 
-        for wl in workloads:
-            if not os.path.exists(wl):
-                print(f"Error: specified elf file does not exist\nELF: {wl}")
-                sys.exit(1)
+        # for wl in workloads:
+        #    if not os.path.exists(wl):
+        #        print(f"Error: specified elf file does not exist\nELF: {wl}")
+        #        sys.exit(1)
 
         # if not os.path.exists(workloads):
         #    print("Error: specified elf file does not exist\nELF: " + workloads)
@@ -292,7 +302,7 @@ class Experiment:
         self.experiment_timestamp = now.strftime("%y%m%d_%H%M%S")
 
         if expname is None:
-            expname = core + "_" + self.experiment_timestamp
+            expname = self.core + "_" + self.experiment_timestamp
 
         if self.verbose:
             print("experiment name is set to: " + expname)
@@ -311,15 +321,14 @@ class Experiment:
         self.expdir = expdir
 
         # Create an array of basenames from workloads
-        workload_basenames = [os.path.basename(wl) for wl in workloads]
+        workload_basenames = [os.path.basename(wl) for wl in self.workloads]
         # Set the absolute path to the elf file
-        # elfAbsPath = os.path.abspath(workloads)
         # generate a config file and write it out.
         date_string = now.strftime("%y%m%d_%H%M%S")
         experimentConfigDict = {
             "date": date_string,
             "name": expname,
-            "core": core,
+            "core": self.core,
             "elf": workload_basenames[
                 0
             ],  # this is for now,  move to using name or core later
@@ -350,7 +359,7 @@ class Experiment:
         versions = self.atlas.getVersionList()
         print("Available versions: " + ", ".join(versions))
 
-        experimentConfigDict["arch"] = self.atlas.getCoreInfo(core)
+        experimentConfigDict["arch"] = self.atlas.getCoreInfo(self.core)
 
         sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
         instcountreport = self.__creatReportNested(
@@ -372,7 +381,7 @@ class Experiment:
         workload_tar_path = os.path.join(expdir, "workload.exp")
         with tarfile.open(workload_tar_path, "w:gz") as tar:
             tar.add(os.path.join(expdir, "config.json"), arcname="config.json")
-            for wl in workloads:
+            for wl in self.workloads:
                 if os.path.exists(wl):
                     tar.add(wl, arcname=os.path.basename(wl))
                 else:
@@ -391,7 +400,7 @@ class Experiment:
         # }
         # resp = requests.post(url, headers=myobj)  # fetch the presigned url
         resp = self.atlas.getSignedUrls(
-            expuuid, expname, core
+            expuuid, expname, self.core
         )  # fetch the presigned url
 
         packageURL = resp.json()["exppackageurl"]

@@ -4,23 +4,19 @@ import locale
 
 # Set locale for number formatting
 locale.setlocale(locale.LC_ALL, "")
-
 # example use of AtlasExplorer library,
 # this assumes that user has ran the script with the "configure" arg
 # Create an instance of the class
 aeinst = atlasexplorer.AtlasExplorer(verbose=True)
-# aeinst.setRootExperimentDirectory("myexperiments")
-
+# create a new experiment
 experiment = atlasexplorer.Experiment("myexperiments", aeinst, verbose=True)
+# add a workload to the experiment
+experiment.addWorkload("resources/mandelbrot_rv64_O0.elf")
+# set the core type for the experiment
+experiment.setCore("I8500")
+# run an experiment
+experiment.run()
 
-# run an experiment with your elf / core selelection
-# returns exp sub dir name
-
-# experiment.createExperiment(
-#    ["resources/mandelbrot_rv64_O0.elf", "resources/memcpy_rv64.elf"], "shogun_2t"
-# )
-experiment.createExperiment(["resources/mandelbrot_rv64_O0.elf"], "I8500")
-# print("experiment dir: " + experiment.getRoot())
 print(
     "total cycles: "
     + locale.format_string(

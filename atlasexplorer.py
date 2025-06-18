@@ -26,8 +26,13 @@ API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please ch
 
 
 class Experiment:
-    def __init__(self, expdir):
-        self.expdir = expdir
+    def __init__(self, expdir, atlas, verbose=True):
+        self.verbose = verbose
+        self.atlas = atlas
+        """Setup the path where to place the results from the experiments you run"""
+        self.expdir = os.path.abspath(expdir)
+        if not os.path.exists(expdir):
+            os.mkdir(expdir)
         self.config = None
         self.summary = None
         self.instcounts = None
@@ -40,10 +45,11 @@ class Experiment:
                 self.config = json.load(f)
 
         # Load the summary report if it exists
-        summary_path = os.path.join(expdir, "reports", "summary", "summary.json")
-        if os.path.exists(summary_path):
-            with open(summary_path) as f:
-                self.summary = SummaryReport(summary_path)
+
+    # summary_path = os.path.join(expdir, "reports", "summary", "summary.json")
+    # if os.path.exists(summary_path):
+    #     with open(summary_path) as f:
+    #         self.summary = SummaryReport(summary_path)
 
     def getRoot(self):
         """Returns the root directory of the experiment"""
@@ -56,141 +62,6 @@ class Experiment:
         else:
             print("No summary report found for this experiment.")
             return None
-
-
-class SummaryReport:
-    def __init__(self, jsonfile):
-        with open(jsonfile) as f:
-            jsonData = json.load(f)
-            self.summarydata = jsonData["Statistics"]["Summary Performance Report"]
-
-            # Remove the "ordered_key" entry if it exists
-            self.summarydata.pop("ordered_keys", None)
-
-            self.totalcycles = self.summarydata["Total Cycles Consumed"]["val"]
-            self.totalinsts = self.summarydata["Total Instructions Retired"]["val"]
-
-    def getTotalCycles(self):
-        """Returns the total cycles from the summary report"""
-        return self.totalcycles
-
-    def getTotalInstructions(self):
-        """Returns the total instructions from the summary report"""
-        return self.totalinsts
-
-    def getMetricKeys(self, regex_pattern=None):
-        """Returns a list of metric keys from the summary report, optionally filtered by regex pattern"""
-        all_keys = list(self.summarydata.keys())
-
-        if regex_pattern is None:
-            return all_keys
-
-        try:
-            pattern = re.compile(regex_pattern)
-            return [key for key in all_keys if pattern.search(key)]
-        except re.error:
-            print(f"Invalid regex pattern: {regex_pattern}")
-            return all_keys
-
-    def getMetricValue(self, key):
-        """Returns the value of a specific metric key from the summary report"""
-        return self.summarydata[key]["val"]
-
-    def printMetrics(self, regex_pattern=None):
-        """Prints all metrics in the summary report, optionally filtered by regex pattern"""
-        keys = self.getMetricKeys(regex_pattern)
-        locale.setlocale(locale.LC_ALL, "")
-        for key in keys:
-            value = self.getMetricValue(key)
-            try:
-                value_str = (
-                    locale.format_string("%d", value, grouping=True)
-                    if isinstance(value, int)
-                    else str(value)
-                )
-            except Exception:
-                value_str = str(value)
-            print(f"{key}: {value_str}")
-
-
-class AtlasConstants:
-    AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
-    CONFIG_ENVAR = "MIPS_ATLAS_CONFIG"
-
-
-class AtlasConfig:
-    def __init__(self, readonly=False, verbose=True):
-        self.verbose = verbose
-        if AtlasConstants.CONFIG_ENVAR in os.environ:
-            envvarval = os.environ[AtlasConstants.CONFIG_ENVAR]
-            data = envvarval.split(":")
-            self.apikey = data[0]
-            self.channel = data[1]
-            self.region = data[2]
-            self.hasConfig = True
-            if not readonly:
-                self.setGWbyChannelRegion()
-        else:
-            # file first,
-            home_dir = os.path.expanduser("~")
-            path_parts = [home_dir, ".config", "mips", "atlaspy", "config.json"]
-            configfile = os.path.join(*path_parts)
-            if os.path.exists(configfile):
-                with open(configfile) as f:
-                    data = json.load(f)
-                    self.apikey = data["apikey"]
-                    self.channel = data["channel"]
-                    self.region = data["region"]
-                    self.hasConfig = True
-                    if not readonly:
-                        self.setGWbyChannelRegion()
-            else:
-                self.hasConfig = False
-
-    def setGWbyChannelRegion(self):
-        if self.verbose:
-            print("setting up selected gateway")
-        url = AtlasConstants.AE_GLOBAL_API + "/gwbychannelregion"
-        myobj = {
-            "apikey": self.apikey,
-            "channel": self.channel,
-            "region": self.region,
-        }
-        x = requests.get(url, headers=myobj)
-        self.gateway = x.json()["endpoint"]
-        if self.verbose:
-            print("gateway has been set")
-
-
-class AtlasExplorer:
-    AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
-
-    def __init__(self, verbose=False):
-        # check env var,  then check file..etc.
-        self.verbose = verbose
-        self.config = AtlasConfig(verbose=verbose)
-        if not self.config.hasConfig:
-            print(
-                "Cloud connection is not setup. Please run `atlasexplorer.py configure`"
-            )
-            sys.exit(1)
-
-    def setRootExperimentDirectory(self, path):
-        """Sets the path where to place the results from the experiments you run"""
-        self.rootpath = os.path.abspath(path)
-        if not os.path.exists(path):
-            os.mkdir(path)
-
-    def __checkWorkerStatus(self):
-        if self.verbose:
-            print("Checking worker status")
-        myobj = {
-            "apikey": self.config.apikey,
-            "channel": self.config.channel,
-            "region": self.config.region,
-        }
-        resp = requests.get(self.config.gateway + "/dataworkerstatus", headers=myobj)
-        return resp.json()
 
     def __uploadExpPackage(self, url, content):
         if self.verbose:
@@ -308,38 +179,13 @@ class AtlasExplorer:
                 "Decryption failed. Please check the password and try again."
             )
 
-    # returns signed urls for report/statusget, grrput
-    def __creatReportNested(self, reporttype, expconfig, datetime):
-        if self.verbose:
-            print("creating report " + reporttype)
-        # formatted_string = datetime.strftime("%y%m%d_%H%M%S")
-        reportuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
-        if self.verbose:
-            print("reportUUID: " + reportuuid)
-
-        reportConfigDict = {
-            "startDate": self.experiment_timestamp,
-            "reportUUID": reportuuid,
-            "expUUID": expconfig["uuid"],  # expuuid,
-            "core": expconfig["core"],
-            "elf": expconfig["workload"],
-            "reportName": reporttype,
-            "reportType": reporttype,
-            "userParameters": [],
-            "startInst": 1,
-            "endInst": -1,
-            "resolution": 1,
-            "toolsVersion": "latest",
-            "timeout": 300,
-            "pluginVersion": "0.0.87",
-            "isROIReport": False,
-            "region": 0,
-        }
-
-        return reportConfigDict
-
     def snapshotSource(self, elfPath):
         source_files = set()
+
+        if not elfPath or not os.path.exists(elfPath):
+            if self.verbose:
+                print(f"ELF path does not exist: {elfPath}")
+            return set()
 
         with open(elfPath, "rb") as f:
             elffile = ELFFile(f)
@@ -422,89 +268,32 @@ class AtlasExplorer:
             return None
         return Experiment(expdir)
 
-    def _getCloudCaps(self, version):
-        self.versionCaps = None
-        self.channelCaps = None
-        url = self.config.gateway + "/cloudcaps"
-        myobj = {
-            "Content-Type": "application/json",
-            "apikey": self.config.apikey,
-        }
-        resp = requests.get(url, headers=myobj)
-        if resp.status_code != 200:
-            print("Error fetching cloud capabilities: " + resp.text)
-            sys.exit(1)
-
-        self.channelCaps = resp.json()
-        # print("Cloud capabilities:")
-        # print(json.dumps(resp.json(), indent=4))
-
-        # Iterate over the caps array and find the entry where "version" == version
-        if isinstance(self.channelCaps, list):
-            found = False
-            for cap in self.channelCaps:
-                if cap.get("version") == version:
-                    # print(f"Capabilities for version {version}:")
-                    # print(json.dumps(cap, indent=4))
-                    found = True
-                    self.versionCaps = cap
-                    break
-            if not found:
-                print(f"No capabilities found for version {version}")
-                sys.exit(1)
-
-        else:
-            print("Unexpected format for cloud capabilities response.")
-            sys.exit(1)
-
-    def getVersionList(self):
-        """Returns a list of available versions from the cloud capabilities"""
-        if self.channelCaps is None:
-            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
-            return []
-
-            # print("Available versions in cloud capabilities:")
-            # print(json.dumps(self.channelCaps, indent=4))
-            if isinstance(self.channelCaps, list):
-                return [version.get("version") for version in self.channelCaps]
-
-        print("No architectures found in cloud capabilities.")
-        return []
-
-    def getCoreInfo(self, core):
-        if self.versionCaps is None:
-            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
-            return False
-
-        arches = self.versionCaps.get("shinro").get("arches")
-        if isinstance(arches, list):
-            for arch in arches:
-                if arch.get("name") == core:
-                    return arch
-
-        print(f"Core {core} is not supported by the cloud capabilities.")
-        sys.exit(1)
-
-    def createExperiment(self, elf, core, expname=None, unpack=True):
+    def createExperiment(self, workloads, core, expname=None, unpack=True):
         """Creates an experiment with the given elf and core.
         elf: path to the elf file
         core: core name, e.g. I8500, P8500, etc.
         expname: name of the experiment, if None, it will be generated from the elf file name and timestamp
         unpack: if True, unpack the reports after the experiment is created
         """
-        if not os.path.exists(elf):
-            print("Error: specified elf file does not exist\nELF: " + elf)
-            sys.exit(1)
+        # check if wl is a list or a single string
+        if isinstance(workloads, str):
+            workloads = [workloads]
+
+        for wl in workloads:
+            if not os.path.exists(wl):
+                print(f"Error: specified elf file does not exist\nELF: {wl}")
+                sys.exit(1)
+
+        # if not os.path.exists(workloads):
+        #    print("Error: specified elf file does not exist\nELF: " + workloads)
+        #    sys.exit(1)
 
         now = datetime.now()  # Get current datetime
         self.experiment_timestamp = now.strftime("%y%m%d_%H%M%S")
 
         if expname is None:
-            expname = (
-                os.path.splitext(os.path.basename(elf))[0]
-                + "_"
-                + self.experiment_timestamp
-            )
+            expname = core + "_" + self.experiment_timestamp
+
         if self.verbose:
             print("experiment name is set to: " + expname)
 
@@ -513,30 +302,28 @@ class AtlasExplorer:
         if self.verbose:
             print("creating experiment")
 
-        """check worker status"""
-        workerstatus = self.__checkWorkerStatus()
-        if workerstatus["status"] is False:
-            print("Error: atlas explorer service is down, please try later")
-            sys.exit(1)
-
         expuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
         if self.verbose:
             print("expUUID: " + expuuid)
 
-        expdir = os.path.join(self.rootpath, expname)
+        expdir = os.path.join(self.expdir, expname)
         os.mkdir(expdir)
         self.expdir = expdir
 
+        # Create an array of basenames from workloads
+        workload_basenames = [os.path.basename(wl) for wl in workloads]
         # Set the absolute path to the elf file
-        elfAbsPath = os.path.abspath(elf)
+        # elfAbsPath = os.path.abspath(workloads)
         # generate a config file and write it out.
         date_string = now.strftime("%y%m%d_%H%M%S")
         experimentConfigDict = {
             "date": date_string,
             "name": expname,
             "core": core,
-            "elf": elf,
-            "workload": elf,
+            "elf": workload_basenames[
+                0
+            ],  # this is for now,  move to using name or core later
+            "workload": workload_basenames,
             "uuid": expuuid,
             "toolsVersion": "latest",
             "timeout": 300,
@@ -554,16 +341,16 @@ class AtlasExplorer:
             "arch": {
                 "num_threads": 1,
             },
-            "elfPath": elfAbsPath,
+            "elfPath": "N/A",
             "clientType": "python",
         }
 
-        self._getCloudCaps(experimentConfigDict["toolsVersion"])
+        self.atlas._getCloudCaps(experimentConfigDict["toolsVersion"])
 
-        versions = self.getVersionList()
+        versions = self.atlas.getVersionList()
         print("Available versions: " + ", ".join(versions))
 
-        experimentConfigDict["arch"] = self.getCoreInfo(core)
+        experimentConfigDict["arch"] = self.atlas.getCoreInfo(core)
 
         sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
         instcountreport = self.__creatReportNested(
@@ -574,7 +361,7 @@ class AtlasExplorer:
         )
 
         experimentConfigDict["reports"] = [sumreport, instcountreport, insttracereport]
-        experimentConfigDict["apikey"] = self.config.apikey
+        experimentConfigDict["apikey"] = self.atlas.config.apikey
 
         # print(json.dumps(experimentConfigDict, indent=4))
         with open(os.path.join(expdir, "config.json"), "w") as f:
@@ -585,18 +372,27 @@ class AtlasExplorer:
         workload_tar_path = os.path.join(expdir, "workload.exp")
         with tarfile.open(workload_tar_path, "w:gz") as tar:
             tar.add(os.path.join(expdir, "config.json"), arcname="config.json")
-            tar.add(elf, arcname=os.path.basename(elf))
+            for wl in workloads:
+                if os.path.exists(wl):
+                    tar.add(wl, arcname=os.path.basename(wl))
+                else:
+                    sys.exit(1)  # If the workload file does not exist, exit with error
+            # print(f"Warning: Workload file {wl} does not exist, skipping.")
+            # tar.add(workloads, arcname=os.path.basename(workloads))
 
-        url = self.config.gateway + "/createsignedurls"
-        myobj = {
-            "apikey": self.config.apikey,
-            "channel": self.config.channel,
-            "exp-uuid": expuuid,
-            "workload": elf,
-            "core": core,
-            "action": "experiment",
-        }
-        resp = requests.post(url, headers=myobj)  # fetch the presigned url
+        # url = self.config.gateway + "/createsignedurls"
+        # myobj = {
+        #     "apikey": self.config.apikey,
+        #     "channel": self.config.channel,
+        #     "exp-uuid": expuuid,
+        #     "workload": workloads,
+        #     "core": core,
+        #     "action": "experiment",
+        # }
+        # resp = requests.post(url, headers=myobj)  # fetch the presigned url
+        resp = self.atlas.getSignedUrls(
+            expuuid, expname, core
+        )  # fetch the presigned url
 
         packageURL = resp.json()["exppackageurl"]
         publicKey = resp.json()["publicKey"]
@@ -645,7 +441,7 @@ class AtlasExplorer:
 
             # for report in reportnames:
             # print("unpacking reports: " + report)
-            reporttar = os.path.join(self.rootpath, expdir, self.expname + ".tar.gz")
+            reporttar = os.path.join(self.expdir, self.expname + ".tar.gz")
             if os.path.exists(reporttar):
                 if self.verbose:
                     print("Decrypting package")
@@ -654,7 +450,7 @@ class AtlasExplorer:
                 )
                 if self.verbose:
                     print("Unpacking package")
-                destdir = self.rootpath  # os.path.join(self.rootpath, expdir)
+                destdir = self.expdir  # os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
                     tar.extractall(destdir)
                     tar.close()
@@ -665,16 +461,47 @@ class AtlasExplorer:
             self.cleanSummaries("summary")
             # self.cleanSummaries("summarythreads")
 
-            summaryjson = os.path.join(self.rootpath, expdir, "summary", "summary.json")
+            summaryjson = os.path.join(
+                self.expdir, expdir, "reports", "summary", "summary.json"
+            )
+
             if os.path.exists(summaryjson):
-                summaryreport = SummaryReport(summaryjson)
+                self.summary = SummaryReport(summaryjson)
 
             # Delete the workload_tar_path file after unpacking
             if os.path.exists(workload_tar_path):
                 os.remove(workload_tar_path)
 
             self.snapshotSource(experimentConfigDict["elfPath"])
-        return Experiment(self.expdir)
+
+    def __creatReportNested(self, reporttype, expconfig, datetime):
+        if self.verbose:
+            print("creating report " + reporttype)
+        # formatted_string = datetime.strftime("%y%m%d_%H%M%S")
+        reportuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
+        if self.verbose:
+            print("reportUUID: " + reportuuid)
+
+        reportConfigDict = {
+            "startDate": self.experiment_timestamp,
+            "reportUUID": reportuuid,
+            "expUUID": expconfig["uuid"],  # expuuid,
+            "core": expconfig["core"],
+            "elf": expconfig["workload"],
+            "reportName": reporttype,
+            "reportType": reporttype,
+            "userParameters": [],
+            "startInst": 1,
+            "endInst": -1,
+            "resolution": 1,
+            "toolsVersion": "latest",
+            "timeout": 300,
+            "pluginVersion": "0.0.87",
+            "isROIReport": False,
+            "region": 0,
+        }
+
+        return reportConfigDict
 
     def cleanSummaries(self, report):
         """Cleans up the summary reports that are not valid"""
@@ -696,6 +523,235 @@ class AtlasExplorer:
                     if self.verbose:
                         print("Deleting invalid roi report: " + filepath)
                     os.remove(filepath)
+
+
+class SummaryReport:
+    def __init__(self, jsonfile):
+        with open(jsonfile) as f:
+            jsonData = json.load(f)
+            self.summarydata = jsonData["Statistics"]["Summary Performance Report"]
+
+            # Remove the "ordered_key" entry if it exists
+            self.summarydata.pop("ordered_keys", None)
+
+            self.totalcycles = self.summarydata["Total Cycles Consumed"]["val"]
+
+            if "Total Instructions Retired" in self.summarydata:
+                self.totalinsts = self.summarydata["Total Instructions Retired"]["val"]
+            elif "Total Instructions Retired (All Threads)" in self.summarydata:
+                self.totalinsts = self.summarydata[
+                    "Total Instructions Retired (All Threads)"
+                ]["val"]
+
+    def getTotalCycles(self):
+        """Returns the total cycles from the summary report"""
+        return self.totalcycles
+
+    def getTotalInstructions(self):
+        """Returns the total instructions from the summary report"""
+        return self.totalinsts
+
+    def getMetricKeys(self, regex_pattern=None):
+        """Returns a list of metric keys from the summary report, optionally filtered by regex pattern"""
+        all_keys = list(self.summarydata.keys())
+
+        if regex_pattern is None:
+            return all_keys
+
+        try:
+            pattern = re.compile(regex_pattern)
+            return [key for key in all_keys if pattern.search(key)]
+        except re.error:
+            print(f"Invalid regex pattern: {regex_pattern}")
+            return all_keys
+
+    def getMetricValue(self, key):
+        """Returns the value of a specific metric key from the summary report"""
+        return self.summarydata[key]["val"]
+
+    def printMetrics(self, regex_pattern=None):
+        """Prints all metrics in the summary report, optionally filtered by regex pattern"""
+        keys = self.getMetricKeys(regex_pattern)
+        locale.setlocale(locale.LC_ALL, "")
+        for key in keys:
+            value = self.getMetricValue(key)
+            try:
+                value_str = (
+                    locale.format_string("%d", value, grouping=True)
+                    if isinstance(value, int)
+                    else str(value)
+                )
+            except Exception:
+                value_str = str(value)
+            print(f"{key}: {value_str}")
+
+
+class AtlasConstants:
+    AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
+    CONFIG_ENVAR = "MIPS_ATLAS_CONFIG"
+
+
+class AtlasConfig:
+    def __init__(self, readonly=False, verbose=True):
+        self.verbose = verbose
+        if AtlasConstants.CONFIG_ENVAR in os.environ:
+            envvarval = os.environ[AtlasConstants.CONFIG_ENVAR]
+            data = envvarval.split(":")
+            self.apikey = data[0]
+            self.channel = data[1]
+            self.region = data[2]
+            self.hasConfig = True
+            if not readonly:
+                self.setGWbyChannelRegion()
+        else:
+            # file first,
+            home_dir = os.path.expanduser("~")
+            path_parts = [home_dir, ".config", "mips", "atlaspy", "config.json"]
+            configfile = os.path.join(*path_parts)
+            if os.path.exists(configfile):
+                with open(configfile) as f:
+                    data = json.load(f)
+                    self.apikey = data["apikey"]
+                    self.channel = data["channel"]
+                    self.region = data["region"]
+                    self.hasConfig = True
+                    if not readonly:
+                        self.setGWbyChannelRegion()
+            else:
+                self.hasConfig = False
+
+    def setGWbyChannelRegion(self):
+        if self.verbose:
+            print("setting up selected gateway")
+        url = AtlasConstants.AE_GLOBAL_API + "/gwbychannelregion"
+        myobj = {
+            "apikey": self.apikey,
+            "channel": self.channel,
+            "region": self.region,
+        }
+        x = requests.get(url, headers=myobj)
+        self.gateway = x.json()["endpoint"]
+        if self.verbose:
+            print("gateway has been set")
+
+
+class AtlasExplorer:
+    AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
+
+    def __init__(self, verbose=False):
+        # check env var,  then check file..etc.
+        self.verbose = verbose
+        self.config = AtlasConfig(verbose=verbose)
+        if not self.config.hasConfig:
+            print(
+                "Cloud connection is not setup. Please run `atlasexplorer.py configure`"
+            )
+            sys.exit(1)
+
+        """check worker status"""
+        workerstatus = self.__checkWorkerStatus()
+        if workerstatus["status"] is False:
+            print("Error: atlas explorer service is down, please try later")
+            sys.exit(1)
+
+    #  def setRootExperimentDirectory(self, path):
+    #      """Sets the path where to place the results from the experiments you run"""
+    #      self.rootpath = os.path.abspath(path)
+    #      if not os.path.exists(path):
+    #          os.mkdir(path)
+
+    def _getCloudCaps(self, version):
+        self.versionCaps = None
+        self.channelCaps = None
+        url = self.config.gateway + "/cloudcaps"
+        myobj = {
+            "Content-Type": "application/json",
+            "apikey": self.config.apikey,
+        }
+        resp = requests.get(url, headers=myobj)
+        if resp.status_code != 200:
+            print("Error fetching cloud capabilities: " + resp.text)
+            sys.exit(1)
+
+        self.channelCaps = resp.json()
+        # print("Cloud capabilities:")
+        # print(json.dumps(resp.json(), indent=4))
+
+        # Iterate over the caps array and find the entry where "version" == version
+        if isinstance(self.channelCaps, list):
+            found = False
+            for cap in self.channelCaps:
+                if cap.get("version") == version:
+                    # print(f"Capabilities for version {version}:")
+                    # print(json.dumps(cap, indent=4))
+                    found = True
+                    self.versionCaps = cap
+                    break
+            if not found:
+                print(f"No capabilities found for version {version}")
+                sys.exit(1)
+
+        else:
+            print("Unexpected format for cloud capabilities response.")
+            sys.exit(1)
+
+    def getCoreInfo(self, core):
+        if self.versionCaps is None:
+            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
+            return False
+
+        arches = self.versionCaps.get("shinro").get("arches")
+        if isinstance(arches, list):
+            for arch in arches:
+                if arch.get("name") == core:
+                    return arch
+
+        print(f"Core {core} is not supported by the cloud capabilities.")
+        sys.exit(1)
+
+    def getVersionList(self):
+        """Returns a list of available versions from the cloud capabilities"""
+        if self.channelCaps is None:
+            print("Cloud capabilities not fetched. Please run _getCloudCaps first.")
+            return []
+
+            # print("Available versions in cloud capabilities:")
+            # print(json.dumps(self.channelCaps, indent=4))
+        if isinstance(self.channelCaps, list):
+            return [version.get("version") for version in self.channelCaps]
+
+        print("No architectures found in cloud capabilities.")
+        return []
+
+    def __checkWorkerStatus(self):
+        if self.verbose:
+            print("Checking worker status")
+        myobj = {
+            "apikey": self.config.apikey,
+            "channel": self.config.channel,
+            "region": self.config.region,
+        }
+        resp = requests.get(self.config.gateway + "/dataworkerstatus", headers=myobj)
+        return resp.json()
+
+    # returns signed urls for report/statusget, grrput
+
+    def getSignedUrls(self, expuuid, name, core):
+        """Returns signed URLs for the given experiment UUID, workloads, and core"""
+        url = self.config.gateway + "/createsignedurls"
+        myobj = {
+            "apikey": self.config.apikey,
+            "channel": self.config.channel,
+            "exp-uuid": expuuid,
+            "workload": name,
+            "core": core,
+            "action": "experiment",
+        }
+        resp = requests.post(url, headers=myobj)
+        if resp.status_code != 200:
+            print("Error fetching signed URLs: " + resp.text)
+            sys.exit(1)
+        return resp
 
 
 # # end class def

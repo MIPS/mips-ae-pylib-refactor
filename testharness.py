@@ -12,8 +12,10 @@ aeinst = atlasexplorer.AtlasExplorer(verbose=True)
 experiment = atlasexplorer.Experiment("myexperiments", aeinst, verbose=True)
 # add a workload to the experiment
 experiment.addWorkload("resources/mandelbrot_rv64_O0.elf")
+experiment.addWorkload("resources/memcpy_rv64.elf")
 # set the core type for the experiment
-experiment.setCore("I8500")
+# experiment.setCore("I8500")
+experiment.setCore("shogun_2t")
 # run an experiment
 experiment.run()
 

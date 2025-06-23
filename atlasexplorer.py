@@ -322,6 +322,9 @@ class Experiment:
 
         # Create an array of basenames from workloads
         workload_basenames = [os.path.basename(wl) for wl in self.workloads]
+
+        # Create an array of objects with "elf" and "zstf" keys
+        workload_objs = [{"elf": wl, "zstf": ""} for wl in self.workloads]
         # Set the absolute path to the elf file
         # generate a config file and write it out.
         date_string = now.strftime("%y%m%d_%H%M%S")
@@ -329,10 +332,10 @@ class Experiment:
             "date": date_string,
             "name": expname,
             "core": self.core,
-            "elf": workload_basenames[
-                0
-            ],  # this is for now,  move to using name or core later
-            "workload": workload_basenames,
+            # "elf": workload_basenames[
+            #     0
+            # ],  # this is for now,  move to using name or core later
+            "workload": workload_objs,  # workload_basenames,
             "uuid": expuuid,
             "toolsVersion": "latest",
             "timeout": 300,
@@ -350,7 +353,7 @@ class Experiment:
             "arch": {
                 "num_threads": 1,
             },
-            "elfPath": "N/A",
+            # "elfPath": "N/A",
             "clientType": "python",
         }
 
@@ -481,7 +484,10 @@ class Experiment:
             if os.path.exists(workload_tar_path):
                 os.remove(workload_tar_path)
 
-            self.snapshotSource(experimentConfigDict["elfPath"])
+            for wl in experimentConfigDict["workload"]:
+                elf_path = wl.get("elf")
+                if elf_path and os.path.exists(elf_path):
+                    self.snapshotSource(elf_path)
 
     def __creatReportNested(self, reporttype, expconfig, datetime):
         if self.verbose:

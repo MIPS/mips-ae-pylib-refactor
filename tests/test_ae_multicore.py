@@ -1,5 +1,6 @@
 import atlasexplorer
 import locale
+import os
 
 
 def test_multicore():
@@ -16,7 +17,11 @@ def test_multicore():
     # create a new experiment
     experiment = atlasexplorer.Experiment("myexperiments", aeinst, verbose=True)
     # add a workload to the experiment
-    experiment.addWorkload("resources/mandelbrot_rv64_O0.elf")
+    resource_path = os.path.join(
+        os.path.dirname(__file__), "..", "resources", "mandelbrot_rv64_O0.elf"
+    )
+    resource_path = os.path.abspath(resource_path)
+    experiment.addWorkload(resource_path)
     experiment.addWorkload("resources/memcpy_rv64.elf")
     # set the core type for the experiment
     experiment.setCore("shogun_2t")

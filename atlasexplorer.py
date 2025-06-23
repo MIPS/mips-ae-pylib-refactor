@@ -540,7 +540,7 @@ class Experiment:
                     os.remove(filepath)
 
 
-# cmt to test workflow 7
+# cmt to test workflow 8
 class SummaryReport:
     def __init__(self, jsonfile):
         with open(jsonfile) as f:
@@ -608,7 +608,9 @@ class AtlasConstants:
 
 
 class AtlasConfig:
-    def __init__(self, readonly=False, verbose=True):
+    def __init__(
+        self, readonly=False, verbose=True, apikey=None, channel=None, region=None
+    ):
         self.verbose = verbose
         if AtlasConstants.CONFIG_ENVAR in os.environ:
             envvarval = os.environ[AtlasConstants.CONFIG_ENVAR]
@@ -633,6 +635,14 @@ class AtlasConfig:
                     self.hasConfig = True
                     if not readonly:
                         self.setGWbyChannelRegion()
+            elif apikey and channel and region:
+                # if no config file, but we have apikey, channel and region, set them.
+                self.apikey = apikey
+                self.channel = channel
+                self.region = region
+                self.hasConfig = True
+                if not readonly:
+                    self.setGWbyChannelRegion()
             else:
                 self.hasConfig = False
 
@@ -654,10 +664,12 @@ class AtlasConfig:
 class AtlasExplorer:
     AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
-    def __init__(self, verbose=False):
+    def __init__(self, apikey=None, channel=None, region=None, verbose=False):
         # check env var,  then check file..etc.
         self.verbose = verbose
-        self.config = AtlasConfig(verbose=verbose)
+        self.config = AtlasConfig(
+            verbose=verbose, apikey=apikey, channel=channel, region=region
+        )
         if not self.config.hasConfig:
             print(
                 "Cloud connection is not setup. Please run `atlasexplorer.py configure`"

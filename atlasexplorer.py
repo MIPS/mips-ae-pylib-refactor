@@ -540,7 +540,7 @@ class Experiment:
                     os.remove(filepath)
 
 
-# cmt to test workflow 1
+# cmt to test workflow 2
 class SummaryReport:
     def __init__(self, jsonfile):
         with open(jsonfile) as f:

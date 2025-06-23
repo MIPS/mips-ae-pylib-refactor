@@ -27,6 +27,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pipenv
           pipenv install --dev --system --deploy
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies with uv
+        run: |
+          uv pip install -r requirements.txt || uv pip install -r uv.lock || uv pip install --system --all-extras
       - name: Install pytest
         run: pip install pytest
       - name: Run tests

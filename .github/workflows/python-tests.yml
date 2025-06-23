@@ -35,6 +35,6 @@ jobs:
       - name: Install pytest
         run: pip install pytest
       - name: Run tests
-        #run: |
-        #  PYTHONPATH=. pytest
-        run: uv run pytest tests
+        run: |
+          PYTHONPATH=. pytest
+        # run: uv run pytest tests

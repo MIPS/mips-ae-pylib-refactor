@@ -18,6 +18,9 @@ jobs:
         python-version: [3.12]
     steps:
       - uses: actions/checkout@v4
+      - name: List contents of resources directory
+        run: |
+          ls -l resources || dir resources || echo 'resources directory not found'
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:

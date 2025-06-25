@@ -332,9 +332,6 @@ class Experiment:
             "date": date_string,
             "name": expname,
             "core": self.core,
-            # "elf": workload_basenames[
-            #     0
-            # ],  # this is for now,  move to using name or core later
             "workload": workload_objs,  # workload_basenames,
             "uuid": expuuid,
             "toolsVersion": "latest",
@@ -353,7 +350,6 @@ class Experiment:
             "arch": {
                 "num_threads": 1,
             },
-            # "elfPath": "N/A",
             "clientType": "python",
         }
 
@@ -364,17 +360,40 @@ class Experiment:
 
         experimentConfigDict["arch"] = self.atlas.getCoreInfo(self.core)
 
-        sumreport = self.__creatReportNested("summary", experimentConfigDict, now)
-        instcountreport = self.__creatReportNested(
-            "inst_counts", experimentConfigDict, now
-        )
-        insttracereport = self.__creatReportNested(
-            "inst_trace", experimentConfigDict, now
+        # for summary,  we don't need # elf and zstf names, so we can use empty strings
+        sumreport = self.__creatReportNested(
+            "summary", "", experimentConfigDict, "", ""
         )
 
-        experimentConfigDict["reports"] = [sumreport, instcountreport, insttracereport]
+        experimentConfigDict["reports"].append(sumreport)
+        for wl_obj in workload_objs:
+            elf_name = os.path.basename(wl_obj["elf"])
+            zstf_name = os.path.basename(wl_obj["zstf"])
+
+            if not zstf_name:
+                zstf_name = elf_name + ".zstf"
+
+            elf_base = elf_name[:-4] if elf_name.lower().endswith(".elf") else elf_name
+
+            instcountreport = self.__creatReportNested(
+                "inst_counts",
+                elf_base + "_Instruction_Counts",
+                experimentConfigDict,
+                elf_name,
+                zstf_name,
+            )
+            insttracereport = self.__creatReportNested(
+                "inst_trace",
+                elf_base + "_Instruction_Trace",
+                experimentConfigDict,
+                elf_name,
+                zstf_name,
+            )
+            # Add the reports to the experimentConfigDict
+            experimentConfigDict["reports"].append(instcountreport)
+            experimentConfigDict["reports"].append(insttracereport)
+
         experimentConfigDict["apikey"] = self.atlas.config.apikey
-
         # print(json.dumps(experimentConfigDict, indent=4))
         with open(os.path.join(expdir, "config.json"), "w") as f:
             json.dump(experimentConfigDict, f, indent=4)
@@ -489,10 +508,10 @@ class Experiment:
                 if elf_path and os.path.exists(elf_path):
                     self.snapshotSource(elf_path)
 
-    def __creatReportNested(self, reporttype, expconfig, datetime):
+    def __creatReportNested(self, reporttype, reportName, expconfig, elfName, zstfName):
         if self.verbose:
             print("creating report " + reporttype)
-        # formatted_string = datetime.strftime("%y%m%d_%H%M%S")
+
         reportuuid = self.experiment_timestamp + "_" + str(uuid.uuid4())
         if self.verbose:
             print("reportUUID: " + reportuuid)
@@ -502,8 +521,9 @@ class Experiment:
             "reportUUID": reportuuid,
             "expUUID": expconfig["uuid"],  # expuuid,
             "core": expconfig["core"],
-            "elf": expconfig["workload"],
-            "reportName": reporttype,
+            "elfFileName": elfName,
+            "zstfFileName": zstfName,
+            "reportName": reportName,
             "reportType": reporttype,
             "userParameters": [],
             "startInst": 1,

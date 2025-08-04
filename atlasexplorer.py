@@ -22,7 +22,7 @@ from elftools.elf.elffile import ELFFile
 import re
 import locale
 
-API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
+API_EXT_VERSION = "0.0.98"  # changing this version may break the API, please check with the API team before changing this version.
 
 
 class Experiment:

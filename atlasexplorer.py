@@ -22,7 +22,7 @@ from elftools.elf.elffile import ELFFile
 import re
 import locale
 
-API_EXT_VERSION = "0.0.68"  # changing this version may break the API, please check with the API team before changing this version.
+API_EXT_VERSION = "0.0.97"  # changing this version may break the API, please check with the API team before changing this version.
 
 
 class Experiment:
@@ -809,11 +809,32 @@ AE_GLOBAL_API = "https://gyrfalcon.api.mips.com"
 
 
 def __getChannelList(apikey):
+    """
+    Fetches the list of available channels for the given API key from the Atlas Explorer cloud API.
+
+    Args:
+        apikey (str): The API key used for authentication.
+
+    Returns:
+        dict: A dictionary containing the channel list under the 'channels' key. If the request fails or the API returns an error,
+        returns a dictionary with an empty 'channels' list.
+
+    Error Handling:
+        - Prints an error message if the API returns a non-200 status code or if a request exception occurs.
+        - Always returns a dictionary with a 'channels' key to prevent downstream IndexError.
+    """
     global API_EXT_VERSION
     url = AE_GLOBAL_API + "/channellist"
     myobj = {"apikey": apikey, "extversion": API_EXT_VERSION}
-    x = requests.get(url, headers=myobj)
-    return x.json()
+    try:
+        x = requests.get(url=url, headers=myobj)
+        if x.status_code != 200:
+            print(f"Error fetching channel list: {x.status_code} {x.text}")
+            return {"channels": []}
+        return x.json()
+    except requests.RequestException as e:
+        print(f"Exception during channel list fetch: {e}")
+        return {"channels": []}
 
 
 def __getUserValid(apikey):
@@ -866,9 +887,12 @@ def configure(args):
             ]
             # get the channels for this user.
             chanswer = prompt(question_channel)["channel"]
-        else:
+        elif len(chnamellist) == 1:
             chanswer = chnamellist[0]
             print("Channel is automatically set to: " + chanswer)
+        else:
+            print("No channels are available for your API key. Please check your API key, API version, or contact support.")
+            sys.exit(1)
 
         # get the region for the channel from the list above.
         regionlist = []

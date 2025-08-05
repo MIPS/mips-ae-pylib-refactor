@@ -4,8 +4,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Remove the Elfs
 *.elf
-
+# Remove the MacOS specific files
+.DS_Store
 
 # C extensions
 *.so

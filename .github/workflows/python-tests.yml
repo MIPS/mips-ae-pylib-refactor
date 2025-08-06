@@ -39,5 +39,5 @@ jobs:
         run: pip install pytest
       - name: Run tests
         run: |
-          PYTHONPATH=. uv run pytest
+          PYTHONPATH=. python -m pytest
         # run: uv run pytest tests

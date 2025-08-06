@@ -12,6 +12,44 @@ Atlas Explorer python library
 * [uv](https://github.com/astral-sh/uv) (recommended for dependency management)
 * Git (for cloning the repository)
 
+
+### Setup and Installation
+
+This project uses [uv](https://github.com/astral-sh/uv) to manage a virtual environment and dependencies. Follow these steps to get set up:
+
+1. **Create a virtual environment:**
+
+   Open your terminal in the project directory and run:
+
+   ```bash
+   uv venv
+   ```
+
+   This creates a `.venv` folder containing a local Python environment.
+
+2. **Activate the virtual environment:**
+
+   On macOS/Linux:
+   ```bash
+   source .venv/bin/activate
+   ```
+   On Windows (PowerShell):
+   ```powershell
+   .venv\Scripts\Activate.ps1
+   ```
+
+3. **Install dependencies and set up the project:**
+
+   ```bash
+   uv pip install -e .
+   ```
+
+   This command installs the package in "editable" mode, so any changes you make to the code are reflected immediately. It also installs all required dependencies listed in `setup.py` and `pyproject.toml`.
+
+You do not need a `requirements.txt` file—`uv` wi˘ll handle dependencies based on your project configuration files.
+
+---
+
 ### Installation
 
 1.  Clone the repository:

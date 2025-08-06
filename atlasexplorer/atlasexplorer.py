@@ -483,7 +483,8 @@ class Experiment:
                     print("Unpacking package")
                 destdir = self.expdir  # os.path.join(self.rootpath, expdir)
                 with tarfile.open(reporttar, "r:gz") as tar:
-                    tar.extractall(destdir)
+                    # filter for tar, for python 3.12 and later
+                    tar.extractall(destdir, filter='tar')
                     tar.close()
             else:
                 print("package does not exist!!, skipped: " + reporttar)

@@ -201,3 +201,5 @@ mips-ae-pylib/
 - The `tests/` directory contains your test scripts.
 - The `resources/` directory contains example ELF files for experiments.
 - The root directory contains configuration and setup files.
+
+ 

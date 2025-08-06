@@ -1,4 +1,4 @@
-# gyrfalcon-pylib  ATLAS EXPLORER
+# ATLAS EXPLORER Python library
 
 ## Overview
 
@@ -17,8 +17,8 @@ Atlas Explorer python library
 1.  Clone the repository:
 
     ```bash
-    git clone [repository URL]
-    cd gyrfalcon-pylib
+    git clone https://github.com/MIPS/mips-ae-pylib.git
+    cd mips-ae-pylib
     ```
 
 2.  Make sure you are using Python 3.12. If you use pyenv:

@@ -667,18 +667,35 @@ class AtlasConfig:
                 self.hasConfig = False
 
     def setGWbyChannelRegion(self):
+        """
+        Sets the API gateway endpoint based on the current API key, channel, and region.
+        Fetches the endpoint from the cloud and updates self.gateway.
+        Handles network errors and unexpected responses gracefully.
+        """
         if self.verbose:
-            print("setting up selected gateway")
+            print("Setting up selected gateway...")
         url = AtlasConstants.AE_GLOBAL_API + "/gwbychannelregion"
         myobj = {
             "apikey": self.apikey,
             "channel": self.channel,
             "region": self.region,
         }
-        x = requests.get(url, headers=myobj)
-        self.gateway = x.json()["endpoint"]
-        if self.verbose:
-            print("gateway has been set")
+        try:
+            response = requests.get(url, headers=myobj, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            endpoint = data.get("endpoint")
+            if not endpoint:
+                raise ValueError("No 'endpoint' found in response from gateway API.")
+            self.gateway = endpoint
+            if self.verbose:
+                print(f"Gateway has been set: {self.gateway}")
+        except requests.RequestException as e:
+            print(f"Error connecting to gateway API: {e}")
+            self.gateway = None
+        except ValueError as ve:
+            print(f"Invalid response from gateway API: {ve}")
+            self.gateway = None
 
 
 class AtlasExplorer:

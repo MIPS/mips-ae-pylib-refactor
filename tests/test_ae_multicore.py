@@ -1,4 +1,4 @@
-import atlasexplorer
+from atlasexplorer import atlasexplorer
 import locale
 import os
 
@@ -10,7 +10,7 @@ def test_multicore():
     # Create an instance of the class
     aeinst = atlasexplorer.AtlasExplorer(
         "de627017-532c-4cef-adff-5c9c444440df",
-        "threading-mode-2",
+        "I8500_(2_threads)",
         "us-west-2",
         verbose=True,
     )
@@ -28,9 +28,10 @@ def test_multicore():
     experiment.addWorkload(mandelbrot_path)
     experiment.addWorkload(memcpy_path)
     # set the core type for the experiment
-    experiment.setCore("shogun_2t")
+    experiment.setCore("I8500_(2_threads)")
     # run an experiment
     experiment.run()
 
     total_cycles = experiment.getSummary().getTotalCycles()
-    assert total_cycles == 256757, "Total Cycles should be 256757"
+    print(f"Total Cycles: {total_cycles}")
+    assert total_cycles == 257577, "Total Cycles should be 257577"

@@ -693,7 +693,10 @@ class AtlasConfig:
             if self.verbose:
                 print(f"Gateway has been set: {self.gateway}")
         except requests.RequestException as e:
-            print(f"Error connecting to gateway API: {e}")
+            if 'response' in dir(e) and e.response is not None:
+                print(f"Error connecting to gateway API: {e}\nStatus: {e.response.status_code}\nText: {e.response.text}")
+            else:
+                print(f"Error connecting to gateway API: {e}")
             self.gateway = None
         except ValueError as ve:
             print(f"Invalid response from gateway API: {ve}")

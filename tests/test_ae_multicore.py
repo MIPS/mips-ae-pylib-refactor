@@ -18,8 +18,11 @@ This test will:
     - Run the experiment and check the total cycles
 """
 from atlasexplorer import atlasexplorer
+from dotenv import load_dotenv
 import locale
 import os
+
+load_dotenv()
 
 
 def test_multicore():

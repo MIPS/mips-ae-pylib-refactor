@@ -1,0 +1,9 @@
+# Example .env file for ATLAS Explorer Python library
+# Copy this file to .env and fill in your credentials
+
+
+# Optional: Override the default API extension version used by Atlas Explorer
+# If not set, the library will use its internal default version.
+API_EXT_VERSION=0.0.97
+
+MIPS_ATLAS_CONFIG=yourapikey:development:us-west-2

@@ -19,6 +19,9 @@ This test will:
 """
 from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
 import locale
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def test_singlecore():

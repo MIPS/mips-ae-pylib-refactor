@@ -29,8 +29,12 @@ import locale
 import os
 import sys
 from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
+from dotenv import load_dotenv
 
 def main():
+    # Load environment variables from .env file
+    load_dotenv()
+
     # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Run a single core experiment with ATLAS Explorer.")
     parser.add_argument("--elf", required=True, help="Path to the ELF workload file.")

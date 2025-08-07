@@ -21,9 +21,13 @@ from Crypto.Protocol.KDF import scrypt
 from elftools.elf.elffile import ELFFile
 import re
 import locale
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 # changing this version may break the API, please check with the API team before changing this version.
-API_EXT_VERSION = "0.0.97"
+API_EXT_VERSION = os.environ.get("API_EXT_VERSION", "0.0.97")
 
 
 class Experiment:
@@ -259,12 +263,15 @@ class Experiment:
 
         return existing_source_files
 
-    def getExperiment(self, expdir):
+    def getExperiment(self, expdir, atlas=None, verbose=True):
         """Returns an Experiment object for the given experiment directory"""
         if not os.path.exists(expdir):
             print("Experiment directory does not exist: " + expdir)
             return None
-        return Experiment(expdir)
+        # Use self.atlas if atlas is not provided
+        if atlas is None:
+            atlas = self.atlas
+        return Experiment(expdir, atlas, verbose=verbose)
 
     def addWorkload(self, workload):
         """Adds a workload to the experiment"""
@@ -992,6 +999,16 @@ def configure(args):
             f"   MIPS_ATLAS_CONFIG = {config['apikey']}:{config['channel']}:{config['region']}"
         )
         print("You have your Atlas and are ready to go Exploring!")
+
+        # Save to .env in project root
+        env_path = os.path.join(os.getcwd(), ".env")
+        env_line = f"MIPS_ATLAS_CONFIG={config['apikey']}:{config['channel']}:{config['region']}\n"
+        try:
+            with open(env_path, "w") as env_file:
+                env_file.write(env_line)
+            print(f".env file created/updated at {env_path} with your credentials.")
+        except Exception as e:
+            print(f"Warning: Could not write .env file: {e}")
     else:
         print("Invalid API Key")
 

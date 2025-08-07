@@ -54,9 +54,22 @@ You do not need a `requirements.txt` file—`uv` will handle dependencies based 
 
 ---
 
+
 ### Configuration
 
 You must configure Atlas Explorer Cloud Access before running experiments or tests. You can do this in two ways:
+
+#### API Version Control
+
+The library uses an API extension version (`API_EXT_VERSION`) for cloud requests. By default, this is set internally, but you can override it by setting the `API_EXT_VERSION` environment variable in your `.env` file or your shell environment:
+
+```
+API_EXT_VERSION=0.0.97
+```
+
+If `API_EXT_VERSION` is set in your environment or `.env`, it will be used; otherwise, the default version is used. This allows you to test or upgrade API versions without changing the code.
+
+#### Atlas Cloud Credentials
 
 1. **Interactive configuration:**
 
@@ -86,11 +99,11 @@ You can run the provided example scripts using uv:
 
 - **Single core experiment:**
   ```bash
-  uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --channel development --core I8500_(1_thread)
+  uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --channel development --core "I8500_(1_thread)"
   ```
 - **Multicore experiment:**
   ```bash
-  uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources/memcpy_rv64.elf --channel development --core I8500_(2_threads)
+  uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources/memcpy_rv64.elf --channel development --core "I8500_(2_threads)"
   ```
 
 You can also specify `--expdir`, `--region`, and `--verbose` as needed. See `examples/ae_singlecore.py` and `examples/ae_multicore.py` for full CLI options.
@@ -120,6 +133,33 @@ You can also specify `--expdir`, `--region`, and `--verbose` as needed. See `exa
 - All tests are run in a virtual environment using uv and pytest.
 
 ---
+
+### Environment Variables with python-dotenv
+
+This project supports loading environment variables from a `.env` file using [python-dotenv](https://github.com/theskumar/python-dotenv). This is useful for local development and testing.
+
+#### Where configuration is stored
+- **.env file**: Always in your project root (auto-generated or copied from env-example)
+- **User config file**: Location depends on your OS:
+  - **Linux/macOS**: `$HOME/.config/mips/atlaspy/config.json`
+  - **Windows**: `%USERPROFILE%\.config\mips\atlaspy\config.json`
+
+#### How to set up
+1. Run interactive configuration:
+   ```bash
+   uv run atlasexplorer/atlasexplorer.py configure
+   ```
+   After successful configuration, your credentials will be saved to both the user config file (see above) and a `.env` file in your project root. The `.env` file will look like:
+   ```env
+   MIPS_ATLAS_CONFIG=<apikey>:<channel>:<region>
+   ```
+2. If you want to set up manually, copy the provided `env-example` file to `.env` and fill in your credentials:
+   ```bash
+   cp env-example .env
+   ```
+3. The library and tests will automatically load this file if present.
+
+You can still use shell `export` or CI secrets as before.
 
 ## Tips for Python Developers
 
@@ -157,6 +197,8 @@ mips-ae-pylib/
 │   ├── ae_singlecore.py
 │   └── ae_multicore.py
 ├── testharness.py              # Example script for running experiments
+├── .env                        # Local environment variables (auto-generated or copied from env-example)
+├── env-example                 # Example .env file for onboarding
 ├── README.md                   # Project documentation
 ├── setup.py                    # Python packaging setup
 ├── pyproject.toml              # Project metadata and dependencies
@@ -170,5 +212,7 @@ mips-ae-pylib/
 - The `examples/` directory contains CLI scripts for running experiments.
 - The `tests/` directory contains your test scripts.
 - The `resources/` directory contains example ELF files for experiments.
+- The `.env` file stores local environment variables for development/testing.
+- The `env-example` file helps new developers set up their environment quickly.
 - The root directory contains configuration and setup files.
 

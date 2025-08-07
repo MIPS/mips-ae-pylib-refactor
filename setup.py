@@ -10,5 +10,6 @@ setup(
         "pycryptodome>=3.23.0",
         "pyelftools>=0.32",
         "requests>=2.32.4",
+        "python-dotenv",
     ],
 )

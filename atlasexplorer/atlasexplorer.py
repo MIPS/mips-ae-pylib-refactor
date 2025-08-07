@@ -715,11 +715,16 @@ class AtlasExplorer:
             )
             sys.exit(1)
 
-        """check worker status"""
-        workerstatus = self.__checkWorkerStatus()
-        if workerstatus["status"] is False:
-            print("Error: atlas explorer service is down, please try later")
-            sys.exit(1)
+        # Check worker status only if gateway is set
+        workerstatus = None
+        if hasattr(self.config, "gateway") and self.config.gateway:
+            workerstatus = self.__checkWorkerStatus()
+            if workerstatus and workerstatus.get("status") is False:
+                print("Error: atlas explorer service is down, please try later")
+                sys.exit(1)
+        else:
+            if self.verbose:
+                print("Warning: Gateway is not set. Skipping worker status check.")
 
     #  def setRootExperimentDirectory(self, path):
     #      """Sets the path where to place the results from the experiments you run"""
@@ -791,15 +796,38 @@ class AtlasExplorer:
         return []
 
     def __checkWorkerStatus(self):
+        """
+        Checks the status of the Atlas Explorer worker via the cloud API.
+
+        Returns:
+            dict: The JSON response from the worker status endpoint, or a dict with error info if the request fails.
+
+        Logging:
+            - Prints detailed status and error messages, including HTTP status codes and exceptions.
+        """
         if self.verbose:
-            print("Checking worker status")
+            print("Checking worker status...")
+        if not hasattr(self.config, "gateway") or not self.config.gateway:
+            print("Error: Gateway is not set. Cannot check worker status.")
+            return {"status": False, "error": "Gateway not set"}
         myobj = {
             "apikey": self.config.apikey,
             "channel": self.config.channel,
             "region": self.config.region,
         }
-        resp = requests.get(self.config.gateway + "/dataworkerstatus", headers=myobj)
-        return resp.json()
+        url = self.config.gateway + "/dataworkerstatus"
+        try:
+            resp = requests.get(url, headers=myobj, timeout=10)
+            if resp.status_code != 200:
+                print(f"Error fetching worker status: {resp.status_code} {resp.text}")
+                return {"status": False, "error": f"HTTP {resp.status_code}", "details": resp.text}
+            result = resp.json()
+            if self.verbose:
+                print(f"Worker status response: {result}")
+            return result
+        except requests.RequestException as e:
+            print(f"Exception during worker status fetch: {e}")
+            return {"status": False, "error": str(e)}
 
     # returns signed urls for report/statusget, grrput
 

@@ -1,4 +1,29 @@
+"""
+ATLAS Explorer Multicore Experiment Example
 
+This script demonstrates how to run a multicore experiment using the ATLAS Explorer Python library.
+
+Usage:
+    uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources/memcpy_rv64.elf --channel development --core I8500_(2_threads)
+
+Arguments:
+    --elf      Path(s) to ELF workload file(s). You can specify multiple files separated by spaces.
+    --expdir   Directory to store experiment results (default: myexperiments)
+    --core     Core type to use for the experiment (default: I8500_(2_threads))
+    --channel  Channel name (default: development)
+    --apikey   Your ATLAS Explorer API key (optional if configured)
+    --region   Region name (optional if configured)
+    --verbose  Enable verbose output for debugging
+
+Configuration:
+    You must configure your API key, channel, and region before running experiments.
+    - Use 'uv run atlasexplorer/atlasexplorer.py configure' for interactive setup
+    - Or set the environment variable: export MIPS_ATLAS_CONFIG=<apikey>:<channel>:<region>
+
+Example:
+    uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources/memcpy_rv64.elf --channel development --core I8500_(2_threads)
+
+"""
 import argparse
 import locale
 import os
@@ -6,7 +31,7 @@ import sys
 from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
 
 def main():
-
+    # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Run a multicore experiment with ATLAS Explorer.")
     parser.add_argument("--elf", required=True, nargs='+', help="Path(s) to ELF workload file(s). Multiple allowed.")
     parser.add_argument("--expdir", default="myexperiments", help="Experiment directory (default: myexperiments)")
@@ -17,27 +42,41 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output.")
     args = parser.parse_args()
 
-    # Check for config file or ENV
+    # Check for configuration: ENV, config file, or CLI args
     config_env = os.environ.get("MIPS_ATLAS_CONFIG")
     home_dir = os.path.expanduser("~")
     config_file = os.path.join(home_dir, ".config", "mips", "atlaspy", "config.json")
     if not args.apikey and not config_env and not os.path.exists(config_file):
         print("Atlas Explorer configuration not found.")
-        print("Please run 'atlasexplorer configure' before using this script.")
+        print("Please run 'uv run atlasexplorer/atlasexplorer.py configure' before using this script.")
         sys.exit(1)
 
+    # Set locale for pretty printing numbers
     locale.setlocale(locale.LC_ALL, "")
+
+    # Create an AtlasExplorer instance
+    # You can pass apikey, channel, region directly, or rely on config/env
     aeinst = AtlasExplorer(
         args.apikey,
         args.channel,
         args.region,
         verbose=args.verbose,
     )
+
+    # Create an Experiment object to manage the experiment
     experiment = Experiment(args.expdir, aeinst, verbose=args.verbose)
+
+    # Add each ELF workload file to the experiment
     for elf_path in args.elf:
         experiment.addWorkload(os.path.abspath(elf_path))
+
+    # Set the core type for the experiment
     experiment.setCore(args.core)
+
+    # Run the experiment (this will upload, execute, and download results)
     experiment.run()
+
+    # Get and print the total cycles from the experiment summary
     total_cycles = experiment.getSummary().getTotalCycles()
     print(f"Total Cycles: {total_cycles}")
 

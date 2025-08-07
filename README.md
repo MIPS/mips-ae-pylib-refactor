@@ -61,7 +61,7 @@ You must configure Atlas Explorer Cloud Access before running experiments or tes
 1. **Interactive configuration:**
 
    ```bash
-   python atlasexplorer/atlasexplorer.py configure
+   uv run atlasexplorer/atlasexplorer.py configure
    ```
    This will prompt you for your API key, channel, and region, and store them in a config file.
 
@@ -112,7 +112,7 @@ You can also specify `--expdir`, `--region`, and `--verbose` as needed. See `exa
 
    - To run a specific test file:
      ```bash
-     python -m pytest tests/test_ae_singlecore.py
+     python -m pytest -s tests/test_ae_singlecore.py
      ```
 
 **CI/CD:**
@@ -121,7 +121,7 @@ You can also specify `--expdir`, `--region`, and `--verbose` as needed. See `exa
 
 ---
 
-## Tips for Junior Python Developers
+## Tips for Python Developers
 
 - Always activate your virtual environment before installing or running anything.
 - Use `uv pip install -e .` to install your project in editable mode for easy development.

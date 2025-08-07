@@ -11,6 +11,7 @@ def main():
     parser.add_argument("--elf", required=True, nargs='+', help="Path(s) to ELF workload file(s). Multiple allowed.")
     parser.add_argument("--expdir", default="myexperiments", help="Experiment directory (default: myexperiments)")
     parser.add_argument("--core", default="I8500_(2_threads)", help="Core type (default: I8500_(2_threads)")
+    parser.add_argument("--channel", default="development", help="Channel (default: development)")
     parser.add_argument("--apikey", help="Your ATLAS Explorer API key.")
     parser.add_argument("--region", help="Region")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output.")
@@ -28,7 +29,7 @@ def main():
     locale.setlocale(locale.LC_ALL, "")
     aeinst = AtlasExplorer(
         args.apikey,
-        args.core,
+        args.channel,
         args.region,
         verbose=args.verbose,
     )

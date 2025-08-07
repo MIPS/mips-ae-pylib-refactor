@@ -7,11 +7,16 @@ def test_multicore():
     locale.setlocale(locale.LC_ALL, "")
     # example use of AtlasExplorer library,
     # this assumes that user has ran the script with the "configure" arg
-    # Create an instance of the class
+    # Create an instance of the class using MIPS_ATLAS_CONFIG env variable
+    config_str = os.environ.get("MIPS_ATLAS_CONFIG", "")
+    try:
+        apikey, channel, region = config_str.split(":")
+    except ValueError:
+        raise RuntimeError("MIPS_ATLAS_CONFIG environment variable must be set as 'apikey:channel:region'")
     aeinst = atlasexplorer.AtlasExplorer(
-        "de627017-532c-4cef-adff-5c9c444440df",
-        "I8500_(2_threads)",
-        "us-west-2",
+        apikey,
+        channel,
+        region,
         verbose=True,
     )
     # create a new experiment

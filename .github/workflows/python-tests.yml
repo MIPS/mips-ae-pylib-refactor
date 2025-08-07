@@ -13,6 +13,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      MIPS_ATLAS_CONFIG: ${{ secrets.MIPS_ATLAS_CONFIG }}
     strategy:
       matrix:
         python-version: [3.12]
@@ -21,22 +23,16 @@ jobs:
       - name: List contents of resources directory
         run: |
           ls -l resources || dir resources || echo 'resources directory not found'
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python, install, and run tests
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Create virtual environment
-        run: uv venv
-      - name: Activate virtual environment
-        run: echo "VIRTUAL_ENV=$(pwd)/.venv" >> $GITHUB_ENV
-      - name: Install project and test dependencies
+      - name: Install, setup, and test
         run: |
+          uv venv
           source .venv/bin/activate
           uv pip install -e .
           uv pip install pytest
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
           python -m pytest -s

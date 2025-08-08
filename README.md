@@ -1,8 +1,8 @@
-# ATLAS EXPLORER Python library
+# ATLAS EXPLORER Python Library
 
 ## Overview
 
-Atlas Explorer python library
+Atlas Explorer Python Library
 
 ## Setup
 

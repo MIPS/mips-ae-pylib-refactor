@@ -344,7 +344,7 @@ class Experiment:
             "uuid": expuuid,
             "toolsVersion": "latest",
             "timeout": 300,
-            "pluginVersion": "0.0.87",  # ext version
+            "pluginVersion": "0.0.97",  # ext version
             "compiler": "",
             "compilerFlags": "",
             "numRegions": 0,
@@ -540,7 +540,7 @@ class Experiment:
             "resolution": 1,
             "toolsVersion": "latest",
             "timeout": 300,
-            "pluginVersion": "0.0.87",
+            "pluginVersion": "0.0.97",
             "isROIReport": False,
             "region": 0,
         }

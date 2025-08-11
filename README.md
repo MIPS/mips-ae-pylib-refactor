@@ -108,6 +108,31 @@ You can run the provided example scripts using uv:
 
 You can also specify `--expdir`, `--region`, and `--verbose` as needed. See `examples/ae_singlecore.py` and `examples/ae_multicore.py` for full CLI options.
 
+### Optional: Using the Customer Notebooks
+
+The project ships example customer-friendly Jupyter notebooks (single-core & multicore) under `notebooks/`. Notebook support is **optional** and not required to use the library or CLI scripts.
+
+Install notebook extras (does not bloat core install):
+
+```bash
+# Install library in editable mode plus notebook extras (PEP 621 extras)
+uv pip install -e .[notebooks]
+
+# (Alternative) Using the uv dependency group we defined
+uv pip install -g notebooks
+```
+
+Then launch Jupyter (classic) or create a kernel:
+
+```bash
+uv run python -m ipykernel install --user --name mips-ae-pylib --display-name "MIPS AE"
+uv run jupyter notebook  # or: uv run jupyter lab
+```
+
+Open `notebooks/ae_singlecore_notebook.ipynb` or `notebooks/ae_multicore_notebook.ipynb` and run cells sequentially. Only edit clearly marked parameter cells.
+
+If you prefer not to install notebook tooling, you can still run all functionality via the CLI scripts in `examples/`.
+
 ### Running Tests
 
 1. **Install pytest (if not already installed):**

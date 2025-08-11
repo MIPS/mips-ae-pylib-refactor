@@ -7,8 +7,9 @@ __pycache__/
 # From Experiments via Atlas Explorer
 atlas-explorer-experiments/
 
-# Remove the Elfs
+# Remove ELF files from experiments and build outputs, but keep resources
 *.elf
+!resources/*.elf
 # Remove the MacOS specific files
 .DS_Store
 

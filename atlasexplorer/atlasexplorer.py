@@ -745,6 +745,14 @@ class AtlasExplorer:
     def _getCloudCaps(self, version):
         self.versionCaps = None
         self.channelCaps = None
+        
+        # Check if gateway is properly configured
+        if self.config.gateway is None:
+            print("Error: Gateway is not configured. Cannot fetch cloud capabilities.")
+            print("This usually means there's an issue with the API service or your configuration.")
+            print("Please run 'atlasexplorer.py configure' to reconfigure your settings.")
+            sys.exit(1)
+            
         url = self.config.gateway + "/cloudcaps"
         myobj = {
             "Content-Type": "application/json",

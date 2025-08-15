@@ -60,12 +60,23 @@ def main():
 
     # Create an AtlasExplorer instance
     # You can pass apikey, channel, region directly, or rely on config/env
-    aeinst = AtlasExplorer(
-        args.apikey,
-        args.channel,
-        args.region,
-        verbose=args.verbose,
-    )
+    try:
+        aeinst = AtlasExplorer(
+            args.apikey,
+            args.channel,
+            args.region,
+            verbose=args.verbose,
+        )
+    except SystemExit:
+        # AtlasExplorer exits if configuration is missing
+        sys.exit(1)
+
+    # Check if gateway is properly configured
+    if not hasattr(aeinst.config, 'gateway') or aeinst.config.gateway is None:
+        print("Error: Atlas Explorer gateway configuration failed.")
+        print("This usually means there's an issue with the API service or your configuration.")
+        print("Please run 'uv run atlasexplorer/atlasexplorer.py configure' to reconfigure your settings.")
+        sys.exit(1)
 
     # Create an Experiment object to manage the experiment
     experiment = Experiment(args.expdir, aeinst, verbose=args.verbose)

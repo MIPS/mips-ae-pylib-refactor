@@ -34,12 +34,20 @@ def test_multicore():
     except ValueError:
         raise RuntimeError("MIPS_ATLAS_CONFIG environment variable must be set as 'apikey:channel:region'")
     # Create an AtlasExplorer instance
-    aeinst = atlasexplorer.AtlasExplorer(
-        apikey,
-        channel,
-        region,
-        verbose=True,
-    )
+    try:
+        aeinst = atlasexplorer.AtlasExplorer(
+            apikey,
+            channel,
+            region,
+            verbose=True,
+        )
+    except SystemExit:
+        raise RuntimeError("AtlasExplorer configuration failed. Check your credentials and try again.")
+
+    # Check if gateway is properly configured
+    if not hasattr(aeinst.config, 'gateway') or aeinst.config.gateway is None:
+        raise RuntimeError("Atlas Explorer gateway configuration failed. This usually means there's an issue with the API service or your configuration.")
+
     # Create a new experiment in 'myexperiments' directory
     experiment = atlasexplorer.Experiment("myexperiments", aeinst, verbose=True)
     # Add workloads to the experiment using absolute paths

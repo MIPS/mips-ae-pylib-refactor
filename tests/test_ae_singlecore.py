@@ -58,5 +58,7 @@ def test_singlecore():
     # Run the experiment
     experiment.run()
     # Get the total cycles and assert the expected value
-    total_cycles = experiment.getSummary().getTotalCycles()
+    summary = experiment.getSummary()
+    assert summary is not None, "Experiment summary should not be None - experiment may have failed"
+    total_cycles = summary.getTotalCycles()
     assert total_cycles == 253629, "Total Cycles should be 253629"

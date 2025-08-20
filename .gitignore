@@ -10,6 +10,10 @@ atlas-explorer-experiments/
 # Remove ELF files from experiments and build outputs, but keep resources
 *.elf
 !resources/*.elf
+
+# Bad ELF for testing
+resources/dhrystone.RISCV64-BAD.elf
+
 # Remove the MacOS specific files
 .DS_Store
 

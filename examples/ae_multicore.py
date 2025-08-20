@@ -92,8 +92,12 @@ def main():
     experiment.run()
 
     # Get and print the total cycles from the experiment summary
-    total_cycles = experiment.getSummary().getTotalCycles()
-    print(f"Total Cycles: {total_cycles}")
+    summary = experiment.getSummary()
+    if summary is not None:
+        total_cycles = summary.getTotalCycles()
+        print(f"Total Cycles: {total_cycles}")
+    else:
+        print("No summary report available - experiment may have failed or ELF files may be invalid")
 
 if __name__ == "__main__":
     main()

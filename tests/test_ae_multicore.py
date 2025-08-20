@@ -66,6 +66,8 @@ def test_multicore():
     # Run the experiment
     experiment.run()
     # Get the total cycles and assert the expected value
-    total_cycles = experiment.getSummary().getTotalCycles()
+    summary = experiment.getSummary()
+    assert summary is not None, "Experiment summary should not be None - experiment may have failed"
+    total_cycles = summary.getTotalCycles()
     print(f"Total Cycles: {total_cycles}")
     assert total_cycles == 257577, "Total Cycles should be 257577"

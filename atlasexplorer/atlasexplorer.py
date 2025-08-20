@@ -189,67 +189,88 @@ class Experiment:
                 print(f"ELF path does not exist: {elfPath}")
             return set()
 
-        with open(elfPath, "rb") as f:
-            elffile = ELFFile(f)
-            if elffile.has_dwarf_info():
-                dwarfinfo = elffile.get_dwarf_info()
+        try:
+            with open(elfPath, "rb") as f:
+                elffile = ELFFile(f)
+                if elffile.has_dwarf_info():
+                    dwarfinfo = elffile.get_dwarf_info()
 
-                for CU in dwarfinfo.iter_CUs():
-                    # Get compilation directory from the compilation unit
-                    comp_dir = ""
-                    top_die = CU.get_top_DIE()
-                    if "DW_AT_comp_dir" in top_die.attributes:
-                        comp_dir = top_die.attributes["DW_AT_comp_dir"].value
-                        if isinstance(comp_dir, bytes):
-                            comp_dir = comp_dir.decode("utf-8")
+                    for CU in dwarfinfo.iter_CUs():
+                        try:
+                            # Get compilation directory from the compilation unit
+                            comp_dir = ""
+                            top_die = CU.get_top_DIE()
+                            if "DW_AT_comp_dir" in top_die.attributes:
+                                comp_dir = top_die.attributes["DW_AT_comp_dir"].value
+                                if isinstance(comp_dir, bytes):
+                                    comp_dir = comp_dir.decode("utf-8")
 
-                    lineprog = dwarfinfo.line_program_for_CU(CU)
-                    if lineprog is None:
-                        continue
+                            lineprog = dwarfinfo.line_program_for_CU(CU)
+                            if lineprog is None:
+                                continue
 
-                    # Extract file entries from line program
-                    for file_entry in lineprog["file_entry"]:
-                        filename = file_entry.name
-                        if isinstance(filename, bytes):
-                            filename = filename.decode("utf-8")
+                            # Extract file entries from line program
+                            for file_entry in lineprog["file_entry"]:
+                                try:
+                                    filename = file_entry.name
+                                    if isinstance(filename, bytes):
+                                        filename = filename.decode("utf-8")
 
-                        # Get directory index and resolve directory
-                        dir_index = getattr(file_entry, "dir_index", 0)
-                        directory = ""
+                                    # Get directory index and resolve directory
+                                    dir_index = getattr(file_entry, "dir_index", 0)
+                                    directory = ""
 
-                        if dir_index > 0 and dir_index <= len(
-                            lineprog["include_directory"]
-                        ):
-                            # Build directory by appending include_directory entries up to dir_index
-                            directory_parts = []
-                            for i in range(dir_index + 1):
-                                dir_part = lineprog["include_directory"][i]
-                                if isinstance(dir_part, bytes):
-                                    dir_part = dir_part.decode("utf-8")
-                                directory_parts.append(dir_part)
-                            directory = (
-                                os.path.join(*directory_parts)
-                                if directory_parts
-                                else ""
-                            )
-                            # directory = lineprog["include_directory"][dir_index - 1]
-                            if isinstance(directory, bytes):
-                                directory = directory.decode("utf-8")
+                                    if dir_index > 0 and "include_directory" in lineprog:
+                                        include_dirs = lineprog["include_directory"]
+                                        if dir_index <= len(include_dirs):
+                                            # Build directory by appending include_directory entries up to dir_index
+                                            directory_parts = []
+                                            try:
+                                                for i in range(dir_index + 1):
+                                                    if i < len(include_dirs):
+                                                        dir_part = include_dirs[i]
+                                                        if isinstance(dir_part, bytes):
+                                                            dir_part = dir_part.decode("utf-8")
+                                                        directory_parts.append(dir_part)
+                                                directory = (
+                                                    os.path.join(*directory_parts)
+                                                    if directory_parts
+                                                    else ""
+                                                )
+                                            except (IndexError, ValueError) as e:
+                                                if self.verbose:
+                                                    print(f"Warning: Directory index issue in ELF file {elfPath}: {e}")
+                                                directory = ""
+                                            
+                                            if isinstance(directory, bytes):
+                                                directory = directory.decode("utf-8")
 
-                        # Build full path
-                        if directory:
-                            if os.path.isabs(directory):
-                                full_path = os.path.join(directory, filename)
-                            elif comp_dir:
-                                full_path = os.path.join(comp_dir, directory, filename)
-                            else:
-                                full_path = os.path.join(directory, filename)
-                        elif comp_dir:
-                            full_path = os.path.join(comp_dir, filename)
-                        else:
-                            full_path = filename
+                                    # Build full path
+                                    if directory:
+                                        if os.path.isabs(directory):
+                                            full_path = os.path.join(directory, filename)
+                                        elif comp_dir:
+                                            full_path = os.path.join(comp_dir, directory, filename)
+                                        else:
+                                            full_path = os.path.join(directory, filename)
+                                    elif comp_dir:
+                                        full_path = os.path.join(comp_dir, filename)
+                                    else:
+                                        full_path = filename
 
-                        source_files.add(full_path)
+                                    source_files.add(full_path)
+                                except Exception as e:
+                                    if self.verbose:
+                                        print(f"Warning: Error processing file entry in ELF {elfPath}: {e}")
+                                    continue
+                        except Exception as e:
+                            if self.verbose:
+                                print(f"Warning: Error processing compilation unit in ELF {elfPath}: {e}")
+                            continue
+        except Exception as e:
+            if self.verbose:
+                print(f"Warning: Error reading ELF file {elfPath}: {e}")
+            return set()
 
         # Filter for existing files only
         if self.verbose:

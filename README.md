@@ -248,12 +248,15 @@ uv run examples/ae_multicore.py \
 ### 🚀 Quick Testing
 
 ```bash
-# Run all tests with coverage
-python -m pytest -s --cov=atlasexplorer
+# Run all tests 
+uv run python -m pytest -s
+
+# Run all tests with coverage (if pytest-cov is installed)
+uv run python -m pytest -s --cov=atlasexplorer
 
 # Test specific functionality
-python -m pytest -s tests/test_ae_singlecore.py
-python -m pytest -s tests/test_ae_multicore.py
+uv run python -m pytest -s tests/test_ae_singlecore.py
+uv run python -m pytest -s tests/test_ae_multicore.py
 ```
 
 ### 🔧 Development Setup
@@ -283,7 +286,7 @@ The project includes GitHub Actions workflows that:
 ### Single-Core Performance Analysis
 
 ```
-🎯 KEY RESULT: Total Cycles: 253,629
+🎯 KEY RESULT: Total Cycles: 253,627
 📊 Instructions Executed: 196,626  
 ⚡ IPC (Instructions Per Cycle): 0.775
 💾 L1 Instruction Cache Hit Rate: 99.96%
@@ -294,9 +297,9 @@ The project includes GitHub Actions workflows that:
 ### Multicore Performance Analysis  
 
 ```
-🚀 Multicore Total Cycles: 275,215
+🚀 Multicore Total Cycles: 257,648
 ⚖️ Perfect Load Balance: 196,626 instructions per thread
-⚡ Combined IPC: 1.429 (84% scaling efficiency)
+⚡ Combined IPC: 1.429 (92% scaling efficiency)
 🏆 Thread 0 IPC: 0.714 | Thread 1 IPC: 0.715
 💾 Cache Hit Rates Maintained: >99% under parallel load
 ```
@@ -388,6 +391,12 @@ A: Multicore experiments take 2-5 minutes. Single-core takes 30-60 seconds.
 
 **Q: API connection errors**  
 A: Check your network connection and verify credentials are correct
+
+**Q: Test failures with cycle count mismatches**  
+A: Tests use tolerance ranges (±100 cycles) to account for minor simulation variations. Small differences in cycle counts are normal and expected.
+
+**Q: Warnings about "Error processing file entry in ELF" during tests**  
+A: These are harmless warnings from the library trying to extract debug information from ELF files. They don't affect performance analysis results. You can reduce verbosity by setting `verbose=False` in your code if desired.
 
 ### 🔧 **Performance Tips**
 

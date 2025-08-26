@@ -24,7 +24,7 @@ Our **enhanced Jupyter notebooks** provide a guided, educational experience perf
 #### **Single-Core Performance Analysis**
 ```bash
 # Launch the comprehensive single-core analysis notebook
-jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **What you'll learn:**
@@ -37,7 +37,7 @@ jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 #### **Multicore & Parallel Computing Analysis**
 ```bash
 # Explore advanced parallel performance analysis
-jupyter notebook notebooks/ae_multicore_notebook.ipynb
+uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
 ```
 
 **What you'll master:**
@@ -78,9 +78,9 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
 
 2. **Set up environment and install dependencies:**
    ```bash
-   uv venv && source .venv/bin/activate  # Create and activate virtual environment
-   uv pip install -e .[notebooks]        # Install with Jupyter notebook support
+   uv sync --group notebooks             # Install all dependencies including Jupyter notebook support
    ```
+   > 💡 **Note**: This project uses modern `uv` dependency management. The `uv sync` command automatically creates a virtual environment and installs all dependencies.
 
 3. **Configure your ATLAS Explorer credentials:**
    ```bash
@@ -92,7 +92,7 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
 
 **For interactive learning (recommended):**
 ```bash
-jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **For quick command-line testing:**
@@ -152,7 +152,7 @@ Our enhanced notebooks provide comprehensive, beginner-friendly guidance for CPU
 
 ```bash
 # Launch Jupyter and open the single-core analysis notebook
-jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **Perfect for learning:**
@@ -172,7 +172,7 @@ jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 
 ```bash
 # Launch the advanced parallel computing analysis
-jupyter notebook notebooks/ae_multicore_notebook.ipynb
+uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
 ```
 
 **Master parallel computing:**
@@ -259,14 +259,15 @@ python -m pytest -s tests/test_ae_multicore.py
 ### 🔧 Development Setup
 
 ```bash
-# Install development dependencies
-uv pip install -e .[dev]
+# Install all dependencies including development tools
+uv sync --group dev
 
-# Install testing tools
-uv pip install pytest pytest-cov
+# Run tests with coverage
+uv run python -m pytest -s --cov=atlasexplorer
 
-# Run tests with verbose output
-python -m pytest -s -v
+# Test specific functionality
+uv run python -m pytest -s tests/test_ae_singlecore.py
+uv run python -m pytest -s tests/test_ae_multicore.py
 ```
 
 ### 📊 CI/CD Integration
@@ -371,11 +372,16 @@ mips-ae-pylib/
 **Q: "No credentials found" error**  
 A: Run `uv run atlasexplorer/atlasexplorer.py configure` to set up authentication
 
+**Q: Installation or dependency errors**  
+A: The project uses modern `uv` dependency management. Make sure you have `uv` installed and use:
+   - `uv sync --group notebooks` (installs everything including Jupyter)
+   - `uv run jupyter notebook` (runs Jupyter in the project environment)
+
 **Q: Import errors when running notebooks**  
-A: Make sure you installed with notebook support: `uv pip install -e .[notebooks]`
+A: Make sure you installed with notebook support: `uv sync --group notebooks`
 
 **Q: Jupyter notebook won't start**  
-A: Install Jupyter in your environment: `uv pip install jupyter`
+A: Use `uv run jupyter notebook` to run within the project environment
 
 **Q: Experiment takes too long**  
 A: Multicore experiments take 2-5 minutes. Single-core takes 30-60 seconds.

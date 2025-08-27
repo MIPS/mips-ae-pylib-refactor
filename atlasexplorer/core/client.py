@@ -107,6 +107,8 @@ class AtlasExplorer:
             resp.raise_for_status()
         except requests.RequestException as e:
             raise NetworkError(f"Error fetching cloud capabilities: {e}")
+        except Exception as e:
+            raise NetworkError(f"Error fetching cloud capabilities: {e}")
         
         try:
             self.channelCaps = resp.json()
@@ -218,6 +220,8 @@ class AtlasExplorer:
                 error_details = f" (Status: {e.response.status_code}, Text: {e.response.text})"
             
             raise NetworkError(f"Error checking worker status: {e}{error_details}")
+        except Exception as e:
+            raise NetworkError(f"Error checking worker status: {e}")
         except json.JSONDecodeError as e:
             raise NetworkError(f"Invalid JSON response from worker status API: {e}")
     
@@ -260,6 +264,8 @@ class AtlasExplorer:
             if hasattr(e, 'response') and e.response is not None:
                 error_msg += f" (Status: {e.response.status_code}, Text: {e.response.text})"
             raise NetworkError(error_msg)
+        except Exception as e:
+            raise NetworkError(f"Error fetching signed URLs: {e}")
 
 
 def get_channel_list(apikey: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -298,6 +304,8 @@ def get_channel_list(apikey: str) -> Dict[str, List[Dict[str, Any]]]:
         raise NetworkError(error_msg)
     except json.JSONDecodeError as e:
         raise NetworkError(f"Invalid JSON response from channel list API: {e}")
+    except Exception as e:
+        raise NetworkError(f"Error fetching channel list: {e}")
 
 
 def validate_user_api_key(apikey: str) -> bool:
@@ -317,4 +325,6 @@ def validate_user_api_key(apikey: str) -> bool:
         response = requests.get(url, headers=headers, timeout=30)
         return response.status_code == 200
     except requests.RequestException:
+        return False
+    except Exception:
         return False

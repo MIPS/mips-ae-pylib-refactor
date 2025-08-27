@@ -264,11 +264,18 @@ class TestExperimentWorkflow(unittest.TestCase):
         experiment.expname = "test_experiment"
         
         # Test config creation (private method, so we test the behavior indirectly)
-        with patch.object(experiment, '_execute_experiment') as mock_execute:
+        with patch.object(experiment, '_execute_cloud_experiment') as mock_cloud_execute, \
+             patch.object(experiment, '_download_and_unpack_results') as mock_download, \
+             patch.object(experiment, '_create_experiment_package') as mock_package, \
+             patch('atlasexplorer.core.experiment.os.mkdir') as mock_mkdir, \
+             patch('builtins.open', mock_open()) as mock_file:
+            
+            mock_package.return_value = "/path/to/mock/package.tar.gz"
+            
             experiment.run(expname="test_experiment")
             
             # Verify atlas methods were called
-            self.mock_atlas._getCloudCaps.assert_called_once()
+            self.mock_atlas._getCloudCaps.assert_called_once_with("0.0.97")
             self.mock_atlas.getVersionList.assert_called_once()
             self.mock_atlas.getCoreInfo.assert_called_once_with("I8500")
 

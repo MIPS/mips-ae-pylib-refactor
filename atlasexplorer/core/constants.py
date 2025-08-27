@@ -16,6 +16,7 @@ class AtlasConstants:
     
     # API Version (changing this may break the API)
     API_EXT_VERSION = os.environ.get("API_EXT_VERSION", "0.0.97")
+    API_VERSION = API_EXT_VERSION  # Alias for consistency
     
     # Timeout Configuration (seconds)
     DEFAULT_TIMEOUT = 300

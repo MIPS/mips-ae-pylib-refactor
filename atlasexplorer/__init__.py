@@ -34,7 +34,7 @@ from .atlasexplorer import (
 )
 
 # New modular imports
-from .core import AtlasConfig, AtlasConstants
+from .core import AtlasConfig, AtlasConstants, AtlasExplorer, Experiment
 from .security import SecureEncryption
 from .network import AtlasAPIClient
 from .analysis import ELFAnalyzer, SummaryReport
@@ -49,12 +49,9 @@ from .utils import (
     ConfigurationError
 )
 
-# Future modular classes (to be implemented in subsequent steps)
-# from .core import AtlasExplorer, Experiment
-
-# Backward compatibility aliases
-AtlasExplorer = LegacyAtlasExplorer  # Will be replaced with new implementation
-Experiment = LegacyExperiment        # Will be replaced with new implementation
+# Backward compatibility aliases - now using new implementations
+# AtlasExplorer = LegacyAtlasExplorer  # Now using new modular implementation
+# Experiment = LegacyExperiment        # Now using new modular implementation
 
 # Main public API exports
 __all__ = [

@@ -492,7 +492,7 @@ class Experiment:
             for wl_config in config["workload"]:
                 elf_path = wl_config.get("elf")
                 if elf_path and os.path.exists(elf_path):
-                    self.elf_analyzer.snapshot_source_files(Path(elf_path), verbose=self.verbose)
+                    self.elf_analyzer.snapshot_source_files(Path(elf_path))
         else:
             raise ExperimentError(f"Result package not found: {result_file}")
     

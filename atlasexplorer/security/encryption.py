@@ -161,7 +161,6 @@ class SecureEncryption:
             # Derive key from password using scrypt with random salt
             try:
                 kdf = Scrypt(
-                    algorithm=hashes.SHA256(),
                     length=32,  # 256-bit key
                     salt=salt,
                     n=AtlasConstants.SCRYPT_N,

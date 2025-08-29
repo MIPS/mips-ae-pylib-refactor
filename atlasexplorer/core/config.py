@@ -7,6 +7,7 @@ and direct parameters.
 
 import os
 import json
+import requests
 from typing import Optional, Dict, Any
 from pathlib import Path
 
@@ -154,7 +155,6 @@ class AtlasConfig:
         }
         
         try:
-            import requests
             response = requests.get(url, headers=headers, timeout=AtlasConstants.HTTP_TIMEOUT)
             response.raise_for_status()
             data = response.json()
@@ -171,7 +171,8 @@ class AtlasConfig:
             error_msg = f"Error connecting to gateway API: {e}"
             if hasattr(e, 'response') and e.response is not None:
                 error_msg += f"\nStatus: {e.response.status_code}\nText: {e.response.text}"
-            raise NetworkError(error_msg, getattr(e.response, 'status_code', None), url)
+            status_code = getattr(e, 'response', None) and getattr(e.response, 'status_code', None)
+            raise NetworkError(error_msg, status_code, url)
         except (ValueError, KeyError) as e:
             raise ConfigurationError(f"Invalid response from gateway API: {e}")
     
@@ -194,7 +195,7 @@ class AtlasConfig:
             if self.verbose:
                 print(f"Configuration saved to {config_path}")
                 
-        except (IOError, json.JSONEncodeError) as e:
+        except (IOError, TypeError) as e:
             raise ConfigurationError(f"Failed to save configuration: {e}")
     
     # Legacy method for backward compatibility

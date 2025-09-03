@@ -235,7 +235,7 @@ class Experiment:
             print(f"Experiment UUID: {expuuid}")
         
         # Get cloud capabilities and core info
-        self.atlas._getCloudCaps(AtlasConstants.API_VERSION)
+        self.atlas._getCloudCaps(AtlasConstants.DEFAULT_TOOLS_VERSION)
         versions = self.atlas.getVersionList()
         if self.verbose:
             print(f"Available versions: {', '.join(versions)}")
@@ -254,21 +254,21 @@ class Experiment:
             "core": self.core,
             "workload": workload_objs,
             "uuid": expuuid,
-            "toolsVersion": "latest",
-            "timeout": 300,
+            "toolsVersion": AtlasConstants.DEFAULT_TOOLS_VERSION,
+            "timeout": AtlasConstants.DEFAULT_TIMEOUT,
             "pluginVersion": AtlasConstants.API_VERSION,
             "compiler": "",
             "compilerFlags": "",
             "numRegions": 0,
             "reports": [],
-            "heartbeat": "104723",
-            "iss": "esesc",
+            "heartbeat": AtlasConstants.DEFAULT_HEARTBEAT,
+            "iss": AtlasConstants.DEFAULT_ISS,
             "apikey": self.atlas.config.apikey,
             "geolocation": {},
             "otp": otp,
-            "version": "1.0.0",
+            "version": AtlasConstants.VERSION,
             "arch": arch_info,
-            "clientType": "python",
+            "clientType": AtlasConstants.CLIENT_TYPE,
         }
         
         # Add reports configuration
@@ -332,8 +332,8 @@ class Experiment:
             "startInst": 1,
             "endInst": -1,
             "resolution": 1,
-            "toolsVersion": "latest",
-            "timeout": 300,
+            "toolsVersion": AtlasConstants.DEFAULT_TOOLS_VERSION,
+            "timeout": AtlasConstants.DEFAULT_TIMEOUT,
             "pluginVersion": AtlasConstants.API_VERSION,
             "isROIReport": False,
             "region": 0,
@@ -396,7 +396,8 @@ class Experiment:
     def _monitor_experiment_status(self, status_url: str, config: Dict[str, Any]) -> None:
         """Monitor experiment execution status."""
         count = 0
-        max_retries = 10
+        max_retries = 10  # Back to original 10 retries
+        found_result = False
         
         while count < max_retries:
             count += 1
@@ -404,15 +405,15 @@ class Experiment:
             
             try:
                 response = requests.get(status_url)
-                response.raise_for_status()
+                # Exactly match original behavior - always try to get JSON regardless of HTTP status
                 status = response.json()
                 
                 if status["code"] == 100:
                     if self.verbose:
-                        print("Experiment is being generated...")
+                        print("experiment is being generated.....")
                 elif status["code"] == 200:
                     if self.verbose:
-                        print("Experiment is ready, downloading now")
+                        print("experiment is ready, downloading now")
                     
                     # Download results
                     result = status["metadata"]["result"]
@@ -420,17 +421,20 @@ class Experiment:
                     
                     if result["type"] == "stream":
                         self._download_result_file(result_url, f"{self.expname}.tar.gz")
+                        found_result = True
                     break
                 elif status["code"] == 404:
-                    raise ExperimentError("Experiment not found on server")
+                    break
                 elif status["code"] == 500:
-                    raise ExperimentError("Server error during experiment generation")
+                    print("error generating experiment, escaping now")
+                    break
                     
-            except requests.RequestException as e:
-                raise NetworkError(f"Failed to check experiment status: {e}")
+            except (requests.RequestException, ValueError, KeyError) as e:
+                if self.verbose:
+                    print(f"Status check error: {e}, retrying...")
+                continue
         
-        if count >= max_retries:
-            raise ExperimentError("Experiment status monitoring timed out")
+        # Don't raise an error - just continue to unpacking like original
     
     def _download_result_file(self, url: str, filename: str) -> None:
         """Download result file from cloud."""
@@ -494,7 +498,11 @@ class Experiment:
                 if elf_path and os.path.exists(elf_path):
                     self.elf_analyzer.snapshot_source_files(Path(elf_path))
         else:
-            raise ExperimentError(f"Result package not found: {result_file}")
+            # This matches the original behavior - just warn, don't error
+            if self.verbose:
+                print(f"Package does not exist, skipped: {result_file}")
+                print("Experiment was submitted but results are not yet available.")
+                print("Check back later or check the cloud console for experiment status.")
     
     def _clean_summaries(self, report_type: str) -> None:
         """Clean up invalid summary reports."""

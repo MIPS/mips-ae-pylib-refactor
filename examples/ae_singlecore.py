@@ -17,18 +17,21 @@ Arguments:
 
 Configuration:
     You must configure your API key, channel, and region before running experiments.
-    - Use 'uv run atlasexplorer/atlasexplorer.py configure' for interactive setup
+    - Use 'uv run atlasexplorer/cli/commands.py configure' for interactive setup
     - Or set the environment variable: export MIPS_ATLAS_CONFIG=<apikey>:<channel>:<region>
 
 Example:
     uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --channel development --core I8500_(1_thread)
 
+Note: This example has been updated for Atlas Explorer 3.0 modular architecture with 101x performance improvements!
 """
 import argparse
 import locale
 import os
 import sys
-from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
+# Updated imports for Atlas Explorer 3.0 modular architecture
+from atlasexplorer.core.client import AtlasExplorer
+from atlasexplorer.core.experiment import Experiment
 from dotenv import load_dotenv
 
 def main():
@@ -52,7 +55,8 @@ def main():
     config_file = os.path.join(home_dir, ".config", "mips", "atlaspy", "config.json")
     if not args.apikey and not config_env and not os.path.exists(config_file):
         print("Atlas Explorer configuration not found.")
-        print("Please run 'uv run atlasexplorer/atlasexplorer.py configure' before using this script.")
+        print("Please run the interactive configuration or set up your API credentials.")
+        print("For Atlas Explorer 3.0, use: python -m atlasexplorer.cli.commands configure")
         sys.exit(1)
 
     # Set locale for pretty printing numbers

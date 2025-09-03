@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "cryptography>=45.0.3",
     "inquirerpy>=0.3.4",
+    "psutil>=7.0.0",
     "pycryptodome>=3.23.0",
     "pyelftools>=0.32",
     "pytest-cov>=6.2.1",

@@ -435,6 +435,107 @@ class TestELFAnalyzerFilePathResolution(unittest.TestCase):
         result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
         
         self.assertIsNone(result)
+    
+    def test_resolve_file_path_index_error_in_directory_build(self):
+        """Test resolving when directory building raises IndexError."""
+        mock_file_entry = Mock()
+        mock_file_entry.name = "test.c"
+        mock_file_entry.dir_index = 1
+        
+        # Create include_dirs that will cause IndexError during iteration
+        class ProblematicList:
+            def __len__(self):
+                return 2  # Reports length 2
+            def __getitem__(self, index):
+                if index >= 1:
+                    raise IndexError("Index out of range")
+                return "valid_dir"
+        
+        mock_lineprog = {"include_directory": ProblematicList()}
+        comp_dir = "/home/user/project"
+        
+        result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
+        
+        # Should fall back to comp_dir + filename when directory building fails
+        self.assertEqual(result, "/home/user/project/test.c")
+    
+    def test_resolve_file_path_value_error_in_directory_build(self):
+        """Test resolving when directory building raises ValueError."""
+        mock_file_entry = Mock()
+        mock_file_entry.name = "test.c"
+        mock_file_entry.dir_index = 1
+        
+        # Create include_dirs that will cause ValueError during iteration
+        class ProblematicList:
+            def __len__(self):
+                return 2
+            def __getitem__(self, index):
+                if index >= 1:
+                    raise ValueError("Invalid value")
+                return "valid_dir"
+        
+        mock_lineprog = {"include_directory": ProblematicList()}
+        comp_dir = "/home/user/project"
+        
+        result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
+        
+        # Should fall back to comp_dir + filename when directory building fails
+        self.assertEqual(result, "/home/user/project/test.c")
+    
+    def test_resolve_file_path_bytes_directory_from_join(self):
+        """Test resolving when the joined directory result is bytes."""
+        mock_file_entry = Mock()
+        mock_file_entry.name = "header.h"
+        mock_file_entry.dir_index = 1
+        
+        # Mock os.path.join to return bytes only for directory construction
+        original_join = os.path.join
+        
+        def mock_join_func(*args):
+            # If this is the directory construction call (will have 2 directory parts)
+            if len(args) == 2 and args[0] == "." and args[1] == "include":
+                return b"./include"  # Return bytes for directory
+            else:
+                return original_join(*args)  # Use normal join for final path
+        
+        with patch('os.path.join', side_effect=mock_join_func):
+            mock_lineprog = {"include_directory": [".", "include"]}
+            comp_dir = "/home/user/project"
+            
+            result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
+            
+            # Should decode bytes directory and continue with path resolution
+            expected = "/home/user/project/./include/header.h"
+            self.assertEqual(result, expected)
+    
+    def test_resolve_file_path_no_directory_no_comp_dir(self):
+        """Test resolving with no directory and no compilation directory."""
+        mock_file_entry = Mock()
+        mock_file_entry.name = "standalone.c"
+        mock_file_entry.dir_index = 0  # No directory index
+        
+        mock_lineprog = {}  # No include_directory
+        comp_dir = ""  # No compilation directory
+        
+        result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
+        
+        # Should return just the filename
+        self.assertEqual(result, "standalone.c")
+    
+    def test_resolve_file_path_directory_no_comp_dir(self):
+        """Test resolving with relative directory but no compilation directory."""
+        mock_file_entry = Mock()
+        mock_file_entry.name = "source.c"
+        mock_file_entry.dir_index = 1
+        
+        mock_lineprog = {"include_directory": [".", "src"]}
+        comp_dir = ""  # No compilation directory, this triggers line 183
+        
+        result = self.analyzer._resolve_file_path(mock_file_entry, mock_lineprog, comp_dir)
+        
+        # Should use relative directory path without comp_dir (line 183)
+        expected = "./src/source.c"
+        self.assertEqual(result, expected)
 
 
 class TestELFAnalyzerValidation(unittest.TestCase):

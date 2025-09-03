@@ -15,7 +15,10 @@ import uuid
 import requests
 from pathlib import Path
 from unittest.mock import Mock, patch, mock_open, MagicMock, call
+from datetime import datetime
 
+# Import the module to ensure it's loaded for coverage
+import atlasexplorer.core.experiment
 from atlasexplorer.core.experiment import Experiment
 from atlasexplorer.core.client import AtlasExplorer
 from atlasexplorer.analysis.reports import SummaryReport
@@ -198,6 +201,841 @@ class TestExperiment(unittest.TestCase):
         self.assertIsInstance(sub_experiment, Experiment)
         self.assertEqual(sub_experiment.expdir, os.path.abspath(sub_exp_dir))
         self.assertEqual(sub_experiment.atlas, self.mock_atlas)
+
+    def test_get_summary_with_summary_present(self):
+        """Test getSummary when summary is available."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        mock_summary = Mock(spec=SummaryReport)
+        experiment.summary = mock_summary
+        
+        result = experiment.getSummary()
+        self.assertEqual(result, mock_summary)
+
+    def test_get_summary_no_summary_verbose(self):
+        """Test getSummary when no summary is available with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        with patch('builtins.print') as mock_print:
+            result = experiment.getSummary()
+            self.assertIsNone(result)
+            mock_print.assert_called_with("No summary report found for this experiment.")
+
+    def test_get_summary_no_summary_quiet(self):
+        """Test getSummary when no summary is available without verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        with patch('builtins.print') as mock_print:
+            result = experiment.getSummary()
+            self.assertIsNone(result)
+            mock_print.assert_not_called()
+
+    @patch('atlasexplorer.core.experiment.Path')
+    def test_add_workload_verbose_output(self, mock_path):
+        """Test addWorkload with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        mock_elf_path = Mock()
+        mock_elf_path.exists.return_value = True
+        mock_path.return_value = mock_elf_path
+        experiment.elf_analyzer.validate_elf_file = Mock()
+        
+        test_elf = "/path/to/test.elf"
+        
+        with patch('builtins.print') as mock_print:
+            experiment.addWorkload(test_elf)
+            mock_print.assert_called_with(f"Added workload: {mock_elf_path}")
+
+    @patch('atlasexplorer.core.experiment.Path')
+    def test_add_workload_invalid_elf_file(self, mock_path):
+        """Test adding an invalid ELF file."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        mock_elf_path = Mock()
+        mock_elf_path.exists.return_value = True
+        mock_path.return_value = mock_elf_path
+        
+        # Mock ELF validation to raise an exception
+        experiment.elf_analyzer.validate_elf_file = Mock(side_effect=Exception("Invalid ELF"))
+        
+        with self.assertRaises(ELFValidationError) as context:
+            experiment.addWorkload("/path/to/invalid.elf")
+        
+        self.assertIn("Invalid ELF file", str(context.exception))
+
+    def test_set_core_verbose_output(self):
+        """Test setCore with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        with patch('builtins.print') as mock_print:
+            experiment.setCore("I8500")
+            mock_print.assert_called_with("Core set to: I8500")
+
+    def test_set_core_invalid_types(self):
+        """Test setCore with various invalid types."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Test with integer
+        with self.assertRaises(ExperimentError):
+            experiment.setCore(123)
+        
+        # Test with list
+        with self.assertRaises(ExperimentError):
+            experiment.setCore(["I8500"])
+        
+        # Test with empty string after strip
+        with self.assertRaises(ExperimentError):
+            experiment.setCore("   ")
+
+    def test_load_config_invalid_json(self):
+        """Test loading configuration with invalid JSON."""
+        config_path = os.path.join(self.temp_dir, "config.json")
+        with open(config_path, 'w') as f:
+            f.write("invalid json content {")
+        
+        with patch('builtins.print') as mock_print:
+            experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+            mock_print.assert_called()
+            self.assertIsNone(experiment.config)
+
+    def test_load_config_io_error(self):
+        """Test loading configuration with IO error."""
+        config_path = os.path.join(self.temp_dir, "config.json")
+        
+        # Create file but make it unreadable by mocking open to raise IOError
+        with open(config_path, 'w') as f:
+            f.write('{"test": "data"}')
+        
+        with patch('builtins.open', side_effect=IOError("Permission denied")):
+            with patch('builtins.print') as mock_print:
+                experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+                mock_print.assert_called()
+                self.assertIsNone(experiment.config)
+
+    def test_experiment_directory_creation_error(self):
+        """Test experiment initialization with directory creation error."""
+        non_existent_dir = "/root/cannot_create_here"
+        
+        with patch('os.mkdir', side_effect=OSError("Permission denied")):
+            with self.assertRaises(ExperimentError) as context:
+                Experiment(non_existent_dir, self.mock_atlas, verbose=False)
+            
+            self.assertIn("Cannot create experiment directory", str(context.exception))
+
+    @patch('atlasexplorer.core.experiment.datetime')
+    def test_run_verbose_output_and_error_handling(self, mock_datetime):
+        """Test run method with verbose output and error handling."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.setCore("I8500")
+        experiment.workloads = ["/path/to/test.elf"]
+        
+        # Mock datetime
+        mock_now = Mock()
+        mock_now.strftime.return_value = "250827_123456"
+        mock_datetime.now.return_value = mock_now
+        
+        # Mock _execute_experiment to raise an exception
+        with patch.object(experiment, '_execute_experiment', side_effect=Exception("Execution failed")):
+            with patch('builtins.print') as mock_print:
+                with self.assertRaises(ExperimentError) as context:
+                    experiment.run("test_experiment")
+                
+                mock_print.assert_called_with("Creating experiment: test_experiment")
+                self.assertIn("Experiment execution failed", str(context.exception))
+
+    @patch('atlasexplorer.core.experiment.datetime')
+    @patch('atlasexplorer.core.experiment.uuid')
+    def test_create_experiment_config_verbose(self, mock_uuid, mock_datetime):
+        """Test _create_experiment_config with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.setCore("I8500")
+        experiment.workloads = ["/path/to/test.elf"]
+        experiment.experiment_timestamp = "250827_123456"
+        
+        # Mock UUID generation
+        mock_uuid.uuid4.return_value = "test-uuid-123"
+        
+        # Mock timestamp
+        mock_timestamp = Mock()
+        mock_timestamp.strftime.return_value = "250827_123456"
+        
+        with patch('builtins.print') as mock_print:
+            config = experiment._create_experiment_config(mock_timestamp)
+            
+            # Check that verbose output was generated
+            mock_print.assert_any_call("Experiment UUID: 250827_123456_test-uuid-123")
+            mock_print.assert_any_call("Available versions: 0.0.97")
+            
+            # Verify config structure
+            self.assertIn("uuid", config)
+            self.assertEqual(config["core"], "I8500")
+
+    def test_create_report_config_verbose(self):
+        """Test _create_report_config with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.experiment_timestamp = "250827_123456"
+        
+        exp_config = {"uuid": "test-exp-uuid", "core": "I8500"}
+        
+        with patch('builtins.print') as mock_print:
+            with patch('atlasexplorer.core.experiment.uuid.uuid4', return_value="report-uuid"):
+                report_config = experiment._create_report_config(
+                    "summary", "test_report", exp_config, "test.elf", "test.zstf"
+                )
+                
+                mock_print.assert_called_with("Creating report: summary")
+                self.assertEqual(report_config["reportType"], "summary")
+                self.assertEqual(report_config["reportName"], "test_report")
+
+    @patch('os.mkdir')
+    @patch('builtins.open', new_callable=mock_open)
+    @patch('json.dump')
+    def test_execute_experiment_workflow(self, mock_json_dump, mock_file_open, mock_mkdir):
+        """Test the _execute_experiment workflow."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        experiment.expname = "test_experiment"
+        experiment.unpack = True
+        
+        mock_timestamp = Mock()
+        
+        # Mock the sub-methods
+        with patch.object(experiment, '_create_experiment_config', return_value={"test": "config"}) as mock_config:
+            with patch.object(experiment, '_create_experiment_package', return_value="/path/to/package") as mock_package:
+                with patch.object(experiment, '_execute_cloud_experiment') as mock_cloud:
+                    with patch.object(experiment, '_download_and_unpack_results') as mock_download:
+                        
+                        experiment._execute_experiment(mock_timestamp)
+                        
+                        # Verify the workflow steps
+                        mock_mkdir.assert_called_once()
+                        mock_config.assert_called_once_with(mock_timestamp)
+                        mock_json_dump.assert_called_once()
+                        mock_package.assert_called_once()
+                        mock_cloud.assert_called_once()
+                        mock_download.assert_called_once()
+
+    def test_add_reports_to_config_with_elf_extension(self):
+        """Test _add_reports_to_config with .elf extension handling."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        config = {"reports": []}
+        workload_objs = [{"elf": "/path/to/test.elf", "zstf": ""}]
+        
+        with patch.object(experiment, '_create_report_config', return_value={"report": "config"}) as mock_create:
+            experiment._add_reports_to_config(config, workload_objs)
+            
+            # Should create 3 reports: summary, inst_counts, inst_trace
+            self.assertEqual(mock_create.call_count, 3)
+            self.assertEqual(len(config["reports"]), 3)
+
+    def test_add_reports_to_config_without_elf_extension(self):
+        """Test _add_reports_to_config without .elf extension."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        config = {"reports": []}
+        workload_objs = [{"elf": "/path/to/testfile", "zstf": "custom.zstf"}]
+        
+        with patch.object(experiment, '_create_report_config', return_value={"report": "config"}) as mock_create:
+            experiment._add_reports_to_config(config, workload_objs)
+            
+            # Verify calls were made with correct parameters
+            self.assertEqual(mock_create.call_count, 3)
+            # Check that the correct base name was used (without .elf removal)
+            calls = mock_create.call_args_list
+            self.assertIn("testfile_Instruction_Counts", str(calls))
+            self.assertIn("testfile_Instruction_Trace", str(calls))
+
+    @patch('tarfile.open')
+    @patch('os.path.join')
+    def test_create_experiment_package(self, mock_join, mock_tarfile):
+        """Test _create_experiment_package method."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        experiment.workloads = ["/path/to/test.elf"]
+        
+        config = {"test": "config"}
+        expdir = "/test/exp/dir"
+        
+        # Mock tarfile operations
+        mock_tar = Mock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
+        mock_join.side_effect = lambda *args: "/".join(args)
+        
+        package_path = experiment._create_experiment_package(expdir, config)
+        
+        # Verify tarfile operations
+        mock_tarfile.assert_called_once_with("/test/exp/dir/workload.exp", "w:gz")
+        mock_tar.add.assert_called()
+
+    def test_experiment_initialization_with_verbose_false(self):
+        """Test experiment initialization with verbose=False."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        self.assertFalse(experiment.verbose)
+        self.assertIsNotNone(experiment.encryption)
+        self.assertIsNotNone(experiment.elf_analyzer)
+
+    def test_experiment_initialization_components(self):
+        """Test that all components are properly initialized."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        # Verify initialization of security and analysis components
+        self.assertIsNotNone(experiment.encryption)
+        self.assertIsNotNone(experiment.elf_analyzer)
+        
+        # Verify initial state
+        self.assertEqual(experiment.workloads, [])
+        self.assertIsNone(experiment.core)
+        self.assertIsNone(experiment.expname)
+        self.assertIsNone(experiment.experiment_timestamp)
+        self.assertTrue(experiment.unpack)
+
+    def test_run_with_custom_unpack_setting(self):
+        """Test run method with custom unpack setting."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        experiment.setCore("I8500")
+        experiment.workloads = ["/path/to/test.elf"]
+        
+        with patch.object(experiment, '_execute_experiment') as mock_execute:
+            experiment.run(expname="custom_experiment", unpack=False)
+            
+            self.assertEqual(experiment.expname, "custom_experiment")
+            self.assertFalse(experiment.unpack)
+            mock_execute.assert_called_once()
+
+
+class TestExperimentErrorHandling(unittest.TestCase):
+    """Test comprehensive error handling and edge cases."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.mock_atlas = Mock(spec=AtlasExplorer)
+        
+        # Set up config mock
+        self.mock_config = Mock()
+        self.mock_config.apikey = "test-api-key"
+        self.mock_atlas.config = self.mock_config
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_directory_creation_failure_scenarios(self):
+        """Test various directory creation failure scenarios."""
+        # Test with invalid path characters (on some systems)
+        with patch('os.path.exists', return_value=False):
+            with patch('os.mkdir', side_effect=OSError("Invalid path")):
+                with self.assertRaises(ExperimentError):
+                    Experiment("/invalid\x00path", self.mock_atlas)
+
+    def test_config_loading_edge_cases(self):
+        """Test edge cases in configuration loading."""
+        # Test with directory instead of file
+        config_dir = os.path.join(self.temp_dir, "config.json")
+        os.makedirs(config_dir)
+        
+        with patch('builtins.print') as mock_print:
+            experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+            # Should handle the directory gracefully
+            self.assertIsNone(experiment.config)
+
+    def test_workload_validation_edge_cases(self):
+        """Test edge cases in workload validation."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Test with Path object
+        with patch('atlasexplorer.core.experiment.Path') as mock_path_class:
+            mock_path = Mock()
+            mock_path.exists.return_value = False
+            mock_path_class.return_value = mock_path
+            
+            with self.assertRaises(ELFValidationError):
+                experiment.addWorkload(Path("/nonexistent/file.elf"))
+
+    def test_core_setting_edge_cases(self):
+        """Test edge cases in core setting."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Test with boolean
+        with self.assertRaises(ExperimentError):
+            experiment.setCore(True)
+        
+        # Test with float
+        with self.assertRaises(ExperimentError):
+            experiment.setCore(3.14)
+
+
+class TestExperimentIntegration(unittest.TestCase):
+    """Test integration scenarios and complex workflows."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.mock_atlas = Mock(spec=AtlasExplorer)
+        
+        # Set up comprehensive atlas mock
+        self.mock_config = Mock()
+        self.mock_config.apikey = "test-api-key"
+        self.mock_atlas.config = self.mock_config
+        self.mock_atlas._getCloudCaps = Mock()
+        self.mock_atlas.getVersionList = Mock(return_value=["0.0.97", "0.0.96"])
+        self.mock_atlas.getCoreInfo = Mock(return_value={"name": "I8500", "num_threads": 1})
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch('os.urandom')
+    @patch('atlasexplorer.core.experiment.uuid.uuid4')
+    def test_complete_config_creation_workflow(self, mock_uuid, mock_urandom):
+        """Test complete configuration creation workflow."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.setCore("I8500")
+        experiment.workloads = ["/path/to/app1.elf", "/path/to/app2"]
+        experiment.experiment_timestamp = "250827_123456"
+        
+        # Mock dependencies
+        mock_uuid.return_value = "test-uuid-456"
+        mock_urandom.return_value = b'test_otp_bytes_123456789012345678901234567890'
+        
+        mock_timestamp = Mock()
+        mock_timestamp.strftime.return_value = "250827_123456"
+        
+        with patch('builtins.print') as mock_print:
+            config = experiment._create_experiment_config(mock_timestamp)
+            
+            # Verify comprehensive config structure
+            self.assertEqual(config["core"], "I8500")
+            self.assertEqual(config["name"], None)  # No expname set yet
+            self.assertIn("uuid", config)
+            self.assertIn("otp", config)
+            self.assertEqual(len(config["workload"]), 2)
+            
+            # Verify API calls were made
+            self.mock_atlas._getCloudCaps.assert_called_once()
+            self.mock_atlas.getVersionList.assert_called_once()
+            self.mock_atlas.getCoreInfo.assert_called_once_with("I8500")
+            
+            # Verify verbose output
+            print_calls = [call[0][0] for call in mock_print.call_args_list]
+            self.assertTrue(any("Experiment UUID:" in call for call in print_calls))
+            self.assertTrue(any("Available versions:" in call for call in print_calls))
+
+    def test_report_configuration_comprehensive(self):
+        """Test comprehensive report configuration."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.experiment_timestamp = "250827_123456"
+        
+        config = {"reports": []}
+        workload_objs = [
+            {"elf": "/path/to/benchmark.elf", "zstf": ""},
+            {"elf": "/path/to/application", "zstf": "custom.zstf"}
+        ]
+        
+        with patch('builtins.print') as mock_print:
+            with patch('atlasexplorer.core.experiment.uuid.uuid4', side_effect=["uuid1", "uuid2", "uuid3", "uuid4", "uuid5"]):
+                experiment._add_reports_to_config(config, workload_objs)
+                
+                # Should create 5 reports: 1 summary + 2 workloads * 2 reports each
+                self.assertEqual(len(config["reports"]), 5)
+                
+                # Verify report types
+                report_types = [report.get("reportType") for report in config["reports"]]
+                self.assertIn("summary", report_types)
+                self.assertEqual(report_types.count("inst_counts"), 2)
+                self.assertEqual(report_types.count("inst_trace"), 2)
+                
+                # Verify verbose output for report creation
+                print_calls = [call[0][0] for call in mock_print.call_args_list]
+                self.assertTrue(any("Creating report: summary" in call for call in print_calls))
+                self.assertTrue(any("Creating report: inst_counts" in call for call in print_calls))
+                self.assertTrue(any("Creating report: inst_trace" in call for call in print_calls))
+
+
+class TestExperimentCloudExecution(unittest.TestCase):
+    """Test cloud execution workflows and verbose output."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.mock_atlas = Mock(spec=AtlasExplorer)
+        
+        # Set up config mock
+        self.mock_config = Mock()
+        self.mock_config.apikey = "test-api-key"
+        self.mock_atlas.config = self.mock_config
+        self.mock_atlas.getSignedUrls = Mock()
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch('requests.post')
+    @patch('os.path.getsize')
+    @patch('builtins.open', new_callable=mock_open, read_data=b"test_package_data")
+    def test_upload_experiment_package_verbose(self, mock_file, mock_getsize, mock_post):
+        """Test _upload_experiment_package with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.experiment_timestamp = "250827_123456"
+        
+        # Mock file size and response
+        mock_getsize.return_value = 1024
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+        
+        config = {"test": "config"}
+        package_path = "/path/to/package.exp"
+        
+        # Mock the signed URLs response
+        self.mock_atlas.getSignedUrls.return_value = {
+            "putUrl": "https://upload.url",
+            "getUrl": "https://download.url"
+        }
+        
+        with patch('builtins.print') as mock_print:
+            experiment._upload_experiment_package(package_path, config)
+            
+            # Verify verbose output
+            mock_print.assert_called_with("Uploading experiment package")
+
+    @patch('requests.get')
+    @patch('time.sleep')
+    def test_execute_cloud_experiment_status_100_verbose(self, mock_sleep, mock_get):
+        """Test cloud execution with status 100 (generating) and verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.expname = "test_experiment"
+        
+        # Mock status responses - first 100, then 200
+        mock_response_100 = Mock()
+        mock_response_100.status_code = 200
+        mock_response_100.json.return_value = {"code": 100}
+        
+        mock_response_200 = Mock()
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {
+            "code": 200,
+            "metadata": {
+                "result": {
+                    "url": "https://result.url",
+                    "filename": "results.tar.gz"
+                }
+            }
+        }
+        
+        mock_get.side_effect = [mock_response_100, mock_response_200]
+        
+        config = {"uuid": "test-uuid"}
+        
+        with patch('builtins.print') as mock_print:
+            with patch.object(experiment, '_download_result_file') as mock_download:
+                experiment._execute_cloud_experiment("/path/to/package", config)
+                
+                # Verify verbose output for status 100
+                print_calls = [call[0][0] for call in mock_print.call_args_list]
+                self.assertTrue(any("Experiment is being generated..." in call for call in print_calls))
+                self.assertTrue(any("Experiment is ready, downloading now" in call for call in print_calls))
+
+    @patch('requests.get')
+    def test_download_result_file_chunks(self, mock_get):
+        """Test _download_result_file with chunked download."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Mock response with chunked content
+        mock_response = Mock()
+        mock_response.iter_content.return_value = [b"chunk1", b"chunk2", b"chunk3"]
+        mock_get.return_value = mock_response
+        
+        filename = "test_results.tar.gz"
+        
+        with patch('builtins.open', mock_open()) as mock_file:
+            experiment._download_result_file("https://test.url", filename)
+            
+            # Verify file was opened and chunks were written
+            mock_file.assert_called_once_with(os.path.join(experiment.expdir, filename), "wb")
+            handle = mock_file()
+            self.assertEqual(handle.write.call_count, 3)
+            handle.write.assert_any_call(b"chunk1")
+            handle.write.assert_any_call(b"chunk2")
+            handle.write.assert_any_call(b"chunk3")
+
+    @patch('requests.get')
+    def test_download_result_file_network_error(self, mock_get):
+        """Test _download_result_file with network error."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Mock network exception
+        mock_get.side_effect = requests.RequestException("Network error")
+        
+        with self.assertRaises(NetworkError) as context:
+            experiment._download_result_file("https://test.url", "test.tar.gz")
+        
+        self.assertIn("Failed to download result file", str(context.exception))
+
+    @patch('os.path.exists')
+    def test_download_and_unpack_results_verbose(self, mock_exists):
+        """Test _download_and_unpack_results with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.expname = "test_experiment"
+        
+        config = {"otp": "test_otp"}
+        
+        # Mock file exists
+        mock_exists.return_value = True
+        
+        with patch('builtins.print') as mock_print:
+            with patch.object(experiment.encryption, 'decrypt_file') as mock_decrypt:
+                with patch.object(experiment, '_unpack_results') as mock_unpack:
+                    with patch.object(experiment, '_process_summary_files') as mock_process:
+                        experiment._download_and_unpack_results(config)
+                        
+                        # Verify verbose output
+                        print_calls = [call[0][0] for call in mock_print.call_args_list]
+                        self.assertTrue(any("Preparing download" in call for call in print_calls))
+                        self.assertTrue(any("Decrypting package" in call for call in print_calls))
+
+    @patch('os.listdir')
+    @patch('os.path.exists')
+    def test_process_summary_files_invalid_roi_verbose(self, mock_exists, mock_listdir):
+        """Test _process_summary_files with invalid ROI files and verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        # Mock directory structure
+        mock_exists.return_value = True
+        mock_listdir.return_value = ["test_roi_report.json", "other_file.txt"]
+        
+        # Mock SummaryReport with zero cycles/instructions
+        with patch('atlasexplorer.core.experiment.SummaryReport') as mock_summary_class:
+            mock_summary = Mock()
+            mock_summary.totalcycles = 0
+            mock_summary.totalinsts = 0
+            mock_summary_class.return_value = mock_summary
+            
+            with patch('os.remove') as mock_remove:
+                with patch('builtins.print') as mock_print:
+                    experiment._process_summary_files()
+                    
+                    # Verify invalid ROI file was deleted and verbose output shown
+                    mock_remove.assert_called_once()
+                    print_calls = [call[0][0] for call in mock_print.call_args_list]
+                    self.assertTrue(any("Deleting invalid ROI report" in call for call in print_calls))
+
+    @patch('os.listdir')
+    @patch('os.path.exists')
+    def test_process_summary_files_processing_error_verbose(self, mock_exists, mock_listdir):
+        """Test _process_summary_files with processing error and verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        # Mock directory structure
+        mock_exists.return_value = True
+        mock_listdir.return_value = ["error_roi_report.json"]
+        
+        # Mock SummaryReport to raise an exception
+        with patch('atlasexplorer.core.experiment.SummaryReport', side_effect=Exception("Parse error")):
+            with patch('builtins.print') as mock_print:
+                experiment._process_summary_files()
+                
+                # Verify error was printed
+                print_calls = [call[0][0] for call in mock_print.call_args_list]
+                self.assertTrue(any("Error processing summary file" in call for call in print_calls))
+
+    def test_get_experiment_method(self):
+        """Test getExperiment method for creating sub-experiments."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Create a subdirectory
+        sub_dir = os.path.join(self.temp_dir, "sub_experiment")
+        os.makedirs(sub_dir)
+        
+        # Test with default atlas and verbose
+        sub_experiment = experiment.getExperiment(sub_dir)
+        
+        self.assertIsInstance(sub_experiment, Experiment)
+        self.assertEqual(sub_experiment.expdir, os.path.abspath(sub_dir))
+        self.assertEqual(sub_experiment.atlas, self.mock_atlas)
+        self.assertTrue(sub_experiment.verbose)
+
+    def test_get_experiment_method_with_custom_params(self):
+        """Test getExperiment method with custom parameters."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Create a subdirectory
+        sub_dir = os.path.join(self.temp_dir, "sub_experiment")
+        os.makedirs(sub_dir)
+        
+        # Create custom atlas
+        custom_atlas = Mock(spec=AtlasExplorer)
+        
+        # Test with custom atlas and verbose=False
+        sub_experiment = experiment.getExperiment(sub_dir, atlas=custom_atlas, verbose=False)
+        
+        self.assertIsInstance(sub_experiment, Experiment)
+        self.assertEqual(sub_experiment.expdir, os.path.abspath(sub_dir))
+        self.assertEqual(sub_experiment.atlas, custom_atlas)
+        self.assertFalse(sub_experiment.verbose)
+
+    def test_get_experiment_nonexistent_directory(self):
+        """Test getExperiment with nonexistent directory."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        nonexistent_dir = "/path/that/does/not/exist"
+        
+        with self.assertRaises(ExperimentError) as context:
+            experiment.getExperiment(nonexistent_dir)
+        
+        self.assertIn("Experiment directory does not exist", str(context.exception))
+
+    @patch('requests.put')
+    @patch('os.path.getsize')
+    @patch('builtins.open', new_callable=mock_open, read_data=b"test_package_data")
+    def test_upload_package_method_verbose(self, mock_file, mock_getsize, mock_put):
+        """Test _upload_package method with verbose output."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        
+        # Mock file size and response
+        mock_getsize.return_value = 1024
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_put.return_value = mock_response
+        
+        url = "https://upload.url"
+        package_path = "/path/to/package.exp"
+        
+        with patch('builtins.print') as mock_print:
+            experiment._upload_package(url, package_path)
+            
+            # Verify verbose output
+            mock_print.assert_called_with("Uploading experiment package")
+            
+            # Verify the upload was attempted
+            mock_put.assert_called_once()
+            
+    @patch('requests.put')
+    @patch('os.path.getsize')
+    @patch('builtins.open', new_callable=mock_open, read_data=b"test_package_data")
+    def test_upload_package_method_error(self, mock_file, mock_getsize, mock_put):
+        """Test _upload_package method with upload error."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        
+        # Mock file size and error response
+        mock_getsize.return_value = 1024
+        mock_put.side_effect = requests.RequestException("Upload failed")
+        
+        url = "https://upload.url"
+        package_path = "/path/to/package.exp"
+        
+        with self.assertRaises(NetworkError) as context:
+            experiment._upload_package(url, package_path)
+        
+        self.assertIn("Failed to upload experiment package", str(context.exception))
+
+
+class TestExperimentComplexWorkflows(unittest.TestCase):
+    """Test complex experiment workflows and integration scenarios."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.mock_atlas = Mock(spec=AtlasExplorer)
+        
+        # Set up config mock
+        self.mock_config = Mock()
+        self.mock_config.apikey = "test-api-key"
+        self.mock_atlas.config = self.mock_config
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch('requests.get')
+    @patch('time.sleep')
+    def test_monitor_experiment_status_multiple_retries(self, mock_sleep, mock_get):
+        """Test _monitor_experiment_status with multiple status checks."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
+        experiment.expname = "test_experiment"
+        
+        # Mock multiple status responses - several 100s, then 200
+        responses = []
+        
+        # Create 3 responses with status 100
+        for i in range(3):
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"code": 100}
+            responses.append(mock_response)
+        
+        # Final response with status 200
+        final_response = Mock()
+        final_response.status_code = 200
+        final_response.json.return_value = {
+            "code": 200,
+            "metadata": {
+                "result": {
+                    "url": "https://result.url",
+                    "filename": "results.tar.gz"
+                }
+            }
+        }
+        responses.append(final_response)
+        
+        mock_get.side_effect = responses
+        
+        config = {"uuid": "test-uuid"}
+        status_url = "https://status.url"
+        
+        with patch('builtins.print') as mock_print:
+            with patch.object(experiment, '_download_result_file') as mock_download:
+                experiment._monitor_experiment_status(status_url, config)
+                
+                # Verify multiple status checks occurred
+                self.assertEqual(mock_get.call_count, 4)
+                self.assertEqual(mock_sleep.call_count, 3)  # Sleep called 3 times between checks
+                
+                # Verify verbose output for generation status
+                print_calls = [call[0][0] for call in mock_print.call_args_list]
+                generation_calls = [call for call in print_calls if "Experiment is being generated..." in call]
+                self.assertEqual(len(generation_calls), 3)  # Should print 3 times
+
+    @patch('tarfile.open')
+    def test_create_experiment_package_with_workloads(self, mock_tarfile):
+        """Test _create_experiment_package with actual workload files."""
+        experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
+        experiment.workloads = ["/path/to/app1.elf", "/path/to/app2.elf"]
+        
+        config = {
+            "workload": [
+                {"elf": "/path/to/app1.elf", "zstf": ""},
+                {"elf": "/path/to/app2.elf", "zstf": "custom.zstf"}
+            ]
+        }
+        
+        # Mock tarfile operations
+        mock_tar = Mock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
+        
+        expdir = self.temp_dir
+        package_path = experiment._create_experiment_package(expdir, config)
+        
+        # Verify tarfile was created and files were added
+        expected_package_path = os.path.join(expdir, "workload.exp")
+        self.assertEqual(package_path, expected_package_path)
+        
+        mock_tarfile.assert_called_once_with(expected_package_path, "w:gz")
+        
+        # Verify config.json and workload files were added
+        add_calls = mock_tar.add.call_args_list
+        self.assertEqual(len(add_calls), 3)  # config.json + 2 workload files
+        
+        # Check that workload files were added with correct arcnames
+        call_args = [call[0] for call in add_calls]
+        self.assertIn((os.path.join(expdir, "config.json"),), call_args)
+
+
+if __name__ == '__main__':
+    unittest.main()
     
     def test_get_experiment_nonexistent(self):
         """Test getExperiment with non-existent directory."""

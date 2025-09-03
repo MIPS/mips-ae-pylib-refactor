@@ -136,16 +136,44 @@ class TestAtlasConfigEnvironmentLoading(unittest.TestCase):
             self.assertFalse(result)
             mock_print.assert_called()
 
-    @patch.dict(os.environ, {AtlasConstants.CONFIG_ENVAR: "test-key:test-channel:test-region"})
-    def test_load_from_environment_exception_handling(self):
-        """Test exception handling during environment loading."""
+
+class TestAtlasConfigExceptionHandling(unittest.TestCase):
+    """Test configuration exception handling scenarios."""
+    
+    def test_load_from_environment_exception_verbose(self):
+        """Test exception handling during environment loading with verbose output."""
         config = AtlasConfig(readonly=True, verbose=True)
         
-        with patch.dict(os.environ, {}, clear=True):  # Clear the environment
+        # Mock os.environ to contain the key but raise exception when accessed
+        with patch('os.environ') as mock_environ:
+            # Make the key appear to exist for the 'in' check
+            mock_environ.__contains__.return_value = True
+            # But raise exception when actually accessing the value
+            mock_environ.__getitem__.side_effect = RuntimeError("Environment access error")
+            
             with patch('builtins.print') as mock_print:
                 result = config._load_from_environment()
                 
                 self.assertFalse(result)
+                mock_print.assert_called_once_with("Error parsing environment configuration: Environment access error")
+    
+    def test_load_from_environment_exception_quiet(self):
+        """Test exception handling during environment loading in quiet mode."""
+        config = AtlasConfig(readonly=True, verbose=False)
+        
+        # Mock os.environ to contain the key but raise exception when accessed
+        with patch('os.environ') as mock_environ:
+            # Make the key appear to exist for the 'in' check
+            mock_environ.__contains__.return_value = True
+            # But raise exception when actually accessing the value
+            mock_environ.__getitem__.side_effect = ValueError("Invalid environment data")
+            
+            with patch('builtins.print') as mock_print:
+                result = config._load_from_environment()
+                
+                self.assertFalse(result)
+                # Should not print in quiet mode
+                mock_print.assert_not_called()
 
 
 class TestAtlasConfigFileLoading(unittest.TestCase):

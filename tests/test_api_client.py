@@ -447,6 +447,58 @@ class TestAtlasAPIClientStatusOperations(unittest.TestCase):
                     client.poll_status("https://status.example.com/exp123")
                 
                 self.assertIn(f"Experiment failed with state: {state}", str(context.exception))
+    
+    @patch('time.sleep')
+    def test_poll_status_general_exception_retry(self, mock_sleep):
+        """Test polling with general exception that recovers on retry."""
+        client = AtlasAPIClient("https://api.example.com", verbose=False)
+        
+        # Mock get_status to first raise general exception, then succeed
+        with patch.object(client, 'get_status') as mock_get_status:
+            mock_get_status.side_effect = [
+                Exception("Temporary processing error"),  # First attempt fails
+                {"state": "completed", "result": "success"}  # Second attempt succeeds
+            ]
+            
+            result = client.poll_status("https://status.example.com/exp123", max_attempts=3, delay=1.0)
+            
+            self.assertEqual(result["state"], "completed")
+            self.assertEqual(mock_get_status.call_count, 2)
+            mock_sleep.assert_called_once_with(1.0)
+    
+    @patch('time.sleep')
+    def test_poll_status_general_exception_final_attempt(self, mock_sleep):
+        """Test polling with general exception on final attempt."""
+        client = AtlasAPIClient("https://api.example.com", verbose=False)
+        
+        # Mock get_status to always raise general exception
+        with patch.object(client, 'get_status') as mock_get_status:
+            mock_get_status.side_effect = Exception("Persistent processing error")
+            
+            with self.assertRaises(NetworkError) as context:
+                client.poll_status("https://status.example.com/exp123", max_attempts=2, delay=0.5)
+            
+            self.assertIn("Status polling failed: Persistent processing error", str(context.exception))
+            self.assertEqual(mock_get_status.call_count, 2)
+            # Should sleep after first attempt, but not after final attempt
+            mock_sleep.assert_called_once_with(0.5)
+    
+    @patch('time.sleep')
+    def test_poll_status_general_exception_not_final_attempt(self, mock_sleep):
+        """Test polling with general exception that continues retrying."""
+        client = AtlasAPIClient("https://api.example.com", verbose=False)
+        
+        # Mock get_status to always raise general exception
+        with patch.object(client, 'get_status') as mock_get_status:
+            mock_get_status.side_effect = Exception("Processing timeout")
+            
+            with self.assertRaises(NetworkError) as context:
+                client.poll_status("https://status.example.com/exp123", max_attempts=3, delay=0.1)
+            
+            self.assertIn("Status polling failed: Processing timeout", str(context.exception))
+            self.assertEqual(mock_get_status.call_count, 3)
+            # Should sleep after each failed attempt except the last
+            self.assertEqual(mock_sleep.call_count, 2)
 
 
 class TestAtlasAPIClientFileDownload(unittest.TestCase):

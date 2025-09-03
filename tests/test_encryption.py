@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock, patch, mock_open, MagicMock
 import tempfile
 import os
+import shutil
 import secrets
 from pathlib import Path
 
@@ -440,6 +441,11 @@ class TestSecureEncryptionErrorHandling(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.encryption = SecureEncryption(verbose=False)
+        self.temp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hybrid_encrypt_unexpected_error(self):
         """Test handling of unexpected errors in hybrid encryption."""
@@ -523,6 +529,119 @@ class TestSecureEncryptionErrorHandling(unittest.TestCase):
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
+    
+    def test_hybrid_encrypt_file_input_read_error(self):
+        """Test error handling when input file cannot be read during hybrid encryption."""
+        temp_file_path = os.path.join(self.temp_dir, "test_input.txt")
+        
+        # Create the input file
+        with open(temp_file_path, "w") as f:
+            f.write("test content")
+        
+        # Mock the public key loading to succeed
+        with patch('atlasexplorer.security.encryption.serialization.load_pem_public_key') as mock_load_key:
+            mock_load_key.return_value = Mock()  # Mock public key
+            
+            # Mock file read to raise IOError after key loading succeeds
+            original_open = open
+            def mock_open_side_effect(path, mode, *args, **kwargs):
+                if mode == "rb":
+                    raise IOError("Permission denied")  # Failed read
+                return original_open(path, mode, *args, **kwargs)
+            
+            with patch('builtins.open', side_effect=mock_open_side_effect):
+                with self.assertRaises(EncryptionError) as context:
+                    self.encryption.hybrid_encrypt_file("dummy_public_key", temp_file_path)
+                
+                self.assertIn("Cannot read input file", str(context.exception))
+                self.assertIn("Permission denied", str(context.exception))
+    
+    def test_hybrid_encrypt_file_output_write_error_with_cleanup(self):
+        """Test cleanup when output file write fails during hybrid encryption."""
+        input_file_path = os.path.join(self.temp_dir, "test_input.txt")
+        
+        # Create input file
+        with open(input_file_path, "w") as f:
+            f.write("test content")
+        
+        # Mock the RSA public key loading and encryption to avoid cryptography dependency issues
+        with patch('atlasexplorer.security.encryption.serialization') as mock_serialization:
+            with patch('atlasexplorer.security.encryption.padding') as mock_padding:
+                with patch('atlasexplorer.security.encryption.hashes') as mock_hashes:
+                    with patch('atlasexplorer.security.encryption.AESGCM') as mock_aesgcm:
+                        # Mock successful operations but failed file write
+                        original_open = open
+                        def mock_open_side_effect(path, mode, *args, **kwargs):
+                            if mode == "rb" and str(path) == input_file_path:
+                                return original_open(path, mode, *args, **kwargs)  # Successful read
+                            elif mode == "wb":
+                                raise IOError("Disk full")  # Failed write
+                            return original_open(path, mode, *args, **kwargs)
+                        
+                        with patch('builtins.open', side_effect=mock_open_side_effect):
+                            with patch('pathlib.Path.exists', return_value=True):
+                                with patch('pathlib.Path.unlink') as mock_unlink:
+                                    with self.assertRaises(EncryptionError) as context:
+                                        self.encryption.hybrid_encrypt_file("dummy_public_key", input_file_path)
+                                    
+                                    self.assertIn("Cannot write encrypted file", str(context.exception))
+                                    self.assertIn("Disk full", str(context.exception))
+                                    # Verify cleanup was attempted
+                                    mock_unlink.assert_called_once()
+    
+    def test_decrypt_file_with_password_input_read_error(self):
+        """Test error handling when encrypted file cannot be read."""
+        temp_file_path = os.path.join(self.temp_dir, "test_encrypted.enc")
+        
+        # Create a dummy encrypted file
+        with open(temp_file_path, "wb") as f:
+            f.write(b"dummy encrypted data")
+        
+        # Mock file read to raise IOError
+        with patch('builtins.open', side_effect=IOError("File locked")):
+            with self.assertRaises(EncryptionError) as context:
+                self.encryption.decrypt_file_with_password(temp_file_path, "test_password")
+            
+            self.assertIn("Cannot read encrypted file", str(context.exception))
+            self.assertIn("File locked", str(context.exception))
+    
+    def test_decrypt_file_with_password_output_write_error_with_cleanup(self):
+        """Test cleanup when output file write fails during decryption."""
+        temp_encrypted_path = os.path.join(self.temp_dir, "test_encrypted.enc")
+        
+        # Create a minimal valid encrypted file (48+ bytes as required)
+        test_encrypted_data = secrets.token_bytes(16) + secrets.token_bytes(12) + b"dummy_content" + b"x" * 20
+        with open(temp_encrypted_path, "wb") as f:
+            f.write(test_encrypted_data)
+        
+        # Mock the core operations but let file write fail
+        original_open = open
+        open_call_count = 0
+        
+        def mock_open_side_effect(path, mode, *args, **kwargs):
+            nonlocal open_call_count
+            open_call_count += 1
+            
+            if mode == "rb":
+                # Allow reading the encrypted file
+                return original_open(path, mode, *args, **kwargs)
+            elif mode == "wb" and open_call_count > 1:
+                # Fail on write attempt (after the read)
+                raise IOError("Write permission denied")
+            return original_open(path, mode, *args, **kwargs)
+        
+        # Mock cryptographic operations to avoid complex dependency issues
+        with patch('atlasexplorer.security.encryption.Scrypt'), \
+             patch('atlasexplorer.security.encryption.AESGCM'), \
+             patch('builtins.open', side_effect=mock_open_side_effect), \
+             patch('pathlib.Path.exists', return_value=True), \
+             patch('pathlib.Path.unlink') as mock_unlink:
+            
+            with self.assertRaises(EncryptionError) as context:
+                self.encryption.decrypt_file_with_password(temp_encrypted_path, "test_password")
+            
+            # The specific line 197 should be executed (temp_file.unlink())
+            mock_unlink.assert_called_once()
 
 
 if __name__ == '__main__':

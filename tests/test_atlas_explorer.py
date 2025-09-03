@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from atlasexplorer.core.client import AtlasExplorer, get_channel_list, validate_user_api_key
 from atlasexplorer.core.config import AtlasConfig
+from atlasexplorer.utils.exceptions import NetworkError
 from atlasexplorer.utils.exceptions import (
     NetworkError,
     ConfigurationError,
@@ -773,6 +774,174 @@ class TestAtlasExplorerCompleteCoverage(unittest.TestCase):
             # The function should catch the exception and return False, not raise
             result = validate_user_api_key("test_key")
             self.assertFalse(result)
+
+
+class TestAtlasExplorerMissingCoverage(unittest.TestCase):
+    """Additional tests to cover missing lines."""
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_getCloudCaps_general_exception_direct_call(self, mock_get):
+        """Test _getCloudCaps with general exception via direct call."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            mock_config.return_value.gateway = "https://test.com"
+            
+            # Mock worker status to succeed
+            worker_response = Mock()
+            worker_response.json.return_value = {"status": True}
+            worker_response.raise_for_status.return_value = None
+            
+            # Mock capabilities to succeed initially for constructor
+            caps_response = Mock()
+            caps_response.json.return_value = [{"version": "1.0", "features": []}]
+            caps_response.raise_for_status.return_value = None
+            
+            def side_effect(*args, **kwargs):
+                if "cloudcaps" in args[0]:
+                    return caps_response
+                else:
+                    return worker_response
+            
+            mock_get.side_effect = side_effect
+            
+            # Create explorer successfully
+            explorer = AtlasExplorer(verbose=False)
+            
+            # Now mock the get call to raise a general exception for direct call
+            mock_get.side_effect = ValueError("General error")
+            
+            # Call _getCloudCaps directly to trigger the general exception (line 109)
+            with self.assertRaises(NetworkError) as context:
+                explorer._getCloudCaps("2.0")
+            
+            self.assertIn("Error fetching cloud capabilities: General error", str(context.exception))
+    
+    def test_getVersionList_returns_version_list(self):
+        """Test getVersionList returning version list when channelCaps is list."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            
+            with patch.object(AtlasExplorer, '_check_worker_status'):
+                explorer = AtlasExplorer(verbose=False)
+                
+                # Manually set channelCaps to a list to trigger line 178
+                explorer.channelCaps = [
+                    {"version": "1.0", "features": []},
+                    {"version": "2.0", "features": []},
+                    {"data": "no_version"}  # Entry without version
+                ]
+                
+                # Call getVersionList to trigger line 178
+                versions = explorer.getVersionList()
+                
+                # Should return list of versions (line 178)
+                self.assertEqual(versions, ["1.0", "2.0"])
+    
+    def test_getVersionList_returns_empty_list(self):
+        """Test getVersionList returning empty list when channelCaps is not a list."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            
+            with patch.object(AtlasExplorer, '_check_worker_status'):
+                explorer = AtlasExplorer(verbose=False)
+                
+                # Set channelCaps to a dict (not a list) to trigger line 180
+                explorer.channelCaps = {"version": "1.0", "features": []}
+                
+                # Call getVersionList to trigger line 180
+                versions = explorer.getVersionList()
+                
+                # Should return empty list (line 180)
+                self.assertEqual(versions, [])
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_check_worker_status_verbose_print(self, mock_get):
+        """Test _check_worker_status with verbose output."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {"status": True, "workers": 5}
+            mock_get.return_value = mock_response
+            
+            with patch('builtins.print') as mock_print:
+                explorer = AtlasExplorer(verbose=True)  # Enable verbose mode
+                
+                # Verify that the verbose print was called (line 213)
+                mock_print.assert_any_call("Worker status response: {'status': True, 'workers': 5}")
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_check_worker_status_json_decode_error(self, mock_get):
+        """Test _check_worker_status with JSON decode error."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+            mock_get.return_value = mock_response
+            
+            with self.assertRaises(NetworkError) as context:
+                AtlasExplorer(verbose=False)
+            
+            self.assertIn("Error checking worker status: Invalid JSON", str(context.exception))
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_check_worker_status_general_exception(self, mock_get):
+        """Test _check_worker_status with general exception."""
+        with patch('atlasexplorer.core.client.AtlasConfig') as mock_config:
+            mock_config.return_value.hasConfig = True
+            mock_config.return_value.apikey = "test_key"
+            mock_config.return_value.channel = "test_channel"
+            mock_config.return_value.region = "test_region"
+            
+            # Simulate a general exception (not RequestException)
+            mock_get.side_effect = ValueError("General error")
+            
+            with self.assertRaises(NetworkError) as context:
+                AtlasExplorer(verbose=False)
+            
+            self.assertIn("Error checking worker status: General error", str(context.exception))
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_get_channel_list_network_error_no_response(self, mock_get):
+        """Test get_channel_list with RequestException having no response."""
+        # Create a RequestException without response
+        request_error = requests.exceptions.RequestException("Network error")
+        # Ensure no response attribute
+        mock_get.side_effect = request_error
+        
+        with self.assertRaises(NetworkError) as context:
+            get_channel_list("test_key")
+        
+        # This should trigger line 302 (RequestException without response)
+        self.assertIn("Network error fetching channel list: Network error", str(context.exception))
+    
+    @patch('atlasexplorer.core.client.requests.get')
+    def test_validate_user_api_key_general_exception(self, mock_get):
+        """Test validate_user_api_key with general exception."""
+        # Simulate a general exception (not requests.RequestException)
+        mock_get.side_effect = ValueError("General error")
+        
+        # The function should catch the exception and return False (line 328)
+        result = validate_user_api_key("test_key")
+        self.assertFalse(result)
 
 
 if __name__ == '__main__':

@@ -143,6 +143,30 @@ class TestAtlasExplorerCLICommandExecution(unittest.TestCase):
                     mock_print.assert_called_with("\\nOperation cancelled by user")
                     mock_exit.assert_called_with(0)
 
+    def test_run_with_general_exception(self):
+        """Test execution with general (unexpected) exception."""
+        args = Mock()
+        args.handler_function = "configure"
+        
+        error_message = "Something unexpected happened"
+        
+        # Mock the command function to raise a general exception directly
+        def failing_command(args):
+            raise ValueError(error_message)
+        
+        # Replace the configure command with our failing version
+        self.cli.commands["configure"] = failing_command
+        
+        with patch('sys.exit') as mock_exit:
+            mock_exit.side_effect = SystemExit  # Make exit actually exit
+            with patch('builtins.print') as mock_print:
+                with self.assertRaises(SystemExit):
+                    self.cli.run(args)
+                
+                # Should trigger lines 55-57: "Unexpected error: {e}"
+                mock_print.assert_called_with(f"Unexpected error: {error_message}")
+                mock_exit.assert_called_with(1)
+
 
 class TestAtlasExplorerCLIConfigureCommand(unittest.TestCase):
     """Test configure command functionality."""

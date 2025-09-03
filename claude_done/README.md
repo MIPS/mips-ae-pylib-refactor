@@ -19,9 +19,9 @@ This directory contains comprehensive documentation for the **Atlas Explorer Pyt
 - **[Phase 1.3](./phase1_3_complete_modular_excellence.md)** - Complete Modular Excellence (**COMPLETED**)
 
 ### 🚀 Current Phase - Monolith Deprecation
-- **Phase 2.1** - Functional Parity Validation (Starting)
-- **Phase 2.2** - Backward Compatibility Layer
-- **Phase 2.3** - Performance Benchmarking & Migration Documentation
+- **[Phase 2.1](./phase2_1_functional_parity_validation.md)** - Functional Parity Validation (**COMPLETED**)
+- **[Phase 2.2](./phase2_2_backward_compatibility_complete.md)** - Backward Compatibility Layer (**COMPLETED**)
+- **Phase 2.3** - Performance Benchmarking & Migration Documentation (Starting)
 
 ### 🎯 Future Phases - Legacy Elimination  
 - **Phase 3.1** - Deprecation Warnings Implementation

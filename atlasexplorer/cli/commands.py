@@ -12,6 +12,30 @@ from ..core.config import AtlasConfig
 from ..utils.exceptions import AtlasExplorerError, ConfigurationError
 
 
+# Legacy compatibility functions for functional parity
+def configure(args):
+    """Legacy configure function for API compatibility.
+    
+    This function provides backward compatibility with the legacy monolithic
+    module's configure function.
+    """
+    cli = AtlasExplorerCLI()
+    cli.configure_command(args)
+
+
+def subcmd_configure(subparsers):
+    """Legacy subcmd_configure function for API compatibility.
+    
+    This function provides backward compatibility with the legacy monolithic
+    module's subcmd_configure function.
+    """
+    parser = subparsers.add_parser(
+        "configure",
+        help="Configure Atlas Explorer Cloud Access",
+    )
+    parser.set_defaults(handler_function="configure")
+
+
 class AtlasExplorerCLI:
     """Secure command-line interface for Atlas Explorer.
     

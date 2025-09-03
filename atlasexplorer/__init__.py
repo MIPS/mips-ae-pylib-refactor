@@ -49,6 +49,33 @@ from .utils import (
     ConfigurationError
 )
 
+# External dependencies for functional parity with legacy monolithic module
+# These are imported from the legacy module to maintain 100% API compatibility
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher
+    from elftools.elf.elffile import ELFFile
+    from dotenv import load_dotenv
+    from InquirerPy import prompt
+    from Crypto.Protocol.KDF import scrypt
+    from cryptography.hazmat.backends import default_backend
+except ImportError as e:
+    import warnings
+    warnings.warn(
+        f"Optional dependency not available: {e}. "
+        "Some legacy compatibility features may not work.",
+        ImportWarning
+    )
+    # Create placeholder objects to maintain API compatibility
+    Cipher = None
+    ELFFile = None
+    load_dotenv = None
+    prompt = None
+    scrypt = None
+    default_backend = None
+
+# Configuration functions from legacy module
+from .cli.commands import configure, subcmd_configure
+
 # Backward compatibility aliases - now using new implementations
 # AtlasExplorer = LegacyAtlasExplorer  # Now using new modular implementation
 # Experiment = LegacyExperiment        # Now using new modular implementation
@@ -80,6 +107,18 @@ __all__ = [
     # CLI
     "AtlasExplorerCLI",
     
+    # CLI Functions for legacy compatibility
+    "configure",
+    "subcmd_configure",
+    
+    # External dependencies for legacy compatibility
+    "Cipher",
+    "ELFFile", 
+    "load_dotenv",
+    "prompt",
+    "scrypt",
+    "default_backend",
+    
     # Exceptions
     "AtlasExplorerError",
     "AuthenticationError",
@@ -95,6 +134,13 @@ __all__ = [
     "LegacySummaryReport",
     "LegacyAtlasConfig",
     "LegacyAtlasConstants"
+    # Legacy compatibility exports
+    # Legacy compatibility exports (with deprecation warnings)
+    "LegacyAtlasConfig",
+    "LegacyAtlasConstants",
+    "LegacyAtlasExplorer",
+    "LegacyExperiment",
+    "LegacySummaryReport",
 ]
 
 # Deprecation warnings for legacy usage
@@ -110,3 +156,16 @@ def _warn_legacy_usage(old_name: str, new_name: str):
     )
 
 # Note: Deprecation warnings will be enabled in Phase 2 after new classes are implemented
+
+# Backward Compatibility Layer - Import legacy wrappers
+from .utils.legacy import (
+    LegacyAtlasConfig,
+    LegacyAtlasConstants, 
+    LegacyAtlasExplorer,
+    LegacyExperiment,
+    LegacySummaryReport
+)
+
+# Configure deprecation warning system
+from .utils.deprecation import configure_deprecation_warnings
+configure_deprecation_warnings()

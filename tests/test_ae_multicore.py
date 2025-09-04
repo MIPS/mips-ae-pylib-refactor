@@ -17,7 +17,7 @@ This test will:
     - Set the core type
     - Run the experiment and check the total cycles
 """
-from atlasexplorer import atlasexplorer
+from atlasexplorer import AtlasExplorer, Experiment
 from dotenv import load_dotenv
 import locale
 import os
@@ -35,7 +35,7 @@ def test_multicore():
         raise RuntimeError("MIPS_ATLAS_CONFIG environment variable must be set as 'apikey:channel:region'")
     # Create an AtlasExplorer instance
     try:
-        aeinst = atlasexplorer.AtlasExplorer(
+        aeinst = AtlasExplorer(
             apikey,
             channel,
             region,
@@ -49,7 +49,7 @@ def test_multicore():
         raise RuntimeError("Atlas Explorer gateway configuration failed. This usually means there's an issue with the API service or your configuration.")
 
     # Create a new experiment in 'myexperiments' directory
-    experiment = atlasexplorer.Experiment("myexperiments", aeinst, verbose=True)
+    experiment = Experiment("myexperiments", aeinst, verbose=True)
     # Add workloads to the experiment using absolute paths
     mandelbrot_path = os.path.abspath(
         os.path.join(
@@ -68,7 +68,7 @@ def test_multicore():
     # Get the total cycles and assert the expected value
     summary = experiment.getSummary()
     assert summary is not None, "Experiment summary should not be None - experiment may have failed"
-    total_cycles = summary.getTotalCycles()
+    total_cycles = summary.get_total_cycles()
     print(f"Total Cycles: {total_cycles}")
     
     # Assert cycles are within reasonable range (allow for minor simulation variations)

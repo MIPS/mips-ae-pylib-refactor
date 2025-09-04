@@ -17,7 +17,7 @@ This test will:
     - Set the core type
     - Run the experiment and check the total cycles
 """
-from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
+from atlasexplorer import AtlasExplorer, Experiment
 import locale
 from dotenv import load_dotenv
 
@@ -60,7 +60,7 @@ def test_singlecore():
     # Get the total cycles and assert the expected value
     summary = experiment.getSummary()
     assert summary is not None, "Experiment summary should not be None - experiment may have failed"
-    total_cycles = summary.getTotalCycles()
+    total_cycles = summary.get_total_cycles()
     print(f"Total Cycles: {total_cycles}")
     
     # Assert cycles are within reasonable range (allow for minor simulation variations)

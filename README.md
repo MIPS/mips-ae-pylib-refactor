@@ -495,7 +495,7 @@ uv run examples/ae_multicore.py --core "I8500_(4_threads)" --expdir scaling_4cor
 ### 🧪 **Custom Analysis**
 
 ```python
-from atlasexplorer.atlasexplorer import AtlasExplorer, Experiment
+from atlasexplorer import AtlasExplorer, Experiment
 
 # Custom experiment workflow
 ae = AtlasExplorer(channel="development")  

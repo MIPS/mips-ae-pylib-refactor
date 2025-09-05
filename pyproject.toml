@@ -1,9 +1,23 @@
 [project]
-name = "mips-ae-pylib"
-version = "0.1.0"
-description = "Add your description here"
+name = "atlasexplorer"
+version = "3.0.0"
+description = "MIPS Atlas Explorer Python Library - Advanced CPU Performance Analysis"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    {name = "MIPS Technologies", email = "support@mips.com"}
+]
+license = {text = "MIT"}
+keywords = ["performance", "analysis", "cpu", "mips", "simulation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Benchmark",
+]
 dependencies = [
     "cryptography>=45.0.3",
     "inquirerpy>=0.3.4",
@@ -14,6 +28,9 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "requests>=2.32.4",
 ]
+
+[project.scripts]
+atlasexplorer = "atlasexplorer.cli.commands:AtlasExplorerCLI.main"
 
 [project.optional-dependencies]
 # Install with: uv pip install -e .[notebooks]

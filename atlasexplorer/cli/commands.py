@@ -137,3 +137,7 @@ Examples:
         
         cli = AtlasExplorerCLI()
         cli.run(args)
+
+
+if __name__ == "__main__":
+    AtlasExplorerCLI.main()

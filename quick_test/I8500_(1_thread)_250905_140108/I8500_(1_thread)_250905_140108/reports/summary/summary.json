@@ -1,0 +1,303 @@
+{
+    "Statistics": {
+        "Summary Performance Report": {
+            "Total Cycles Consumed": {
+                "desc": "Free Expression: clocks.Root.stats.cycles",
+                "vis": 100000000,
+                "val": 253627
+            },
+            "Total Instructions Retired": {
+                "desc": "The total number of instructions retired by this core",
+                "vis": 100000000,
+                "val": 196626
+            },
+            "Instructions Per Cycle (IPC)": {
+                "desc": "Instructions retired per cycle",
+                "vis": 100000000,
+                "val": 0.775257
+            },
+            "Total Flushes (mispredicts, exceptions, hazards)": {
+                "desc": "The total number of flushes performed by the ROB",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Total Mispredicts Per 1K Instructions": {
+                "desc": "Mispredictions per 1000 instructions",
+                "vis": 100000000,
+                "val": 0.732355
+            },
+            "Level 1 Instruction Cache (L1ICache) Hits": {
+                "desc": "Number of IL1 cache hits",
+                "vis": 100000000,
+                "val": 109357
+            },
+            "Level 1 Instruction Cache (L1ICache) Misses": {
+                "desc": "Number of IL1 cache misses",
+                "vis": 100000000,
+                "val": 48
+            },
+            "Level 1 Instruction Cache (L1ICache) Hit Percent": {
+                "desc": "Free Expression: ((top.cpu.core0.fetch.icache.stats.il1_cache_hits/(top.cpu.core0.fetch.icache.stats.il1_cache_hits+top.cpu.core0.fetch.icache.stats.il1_cache_misses))*100)",
+                "vis": 100000000,
+                "val": 99.9561
+            },
+            "Transition Lookaside Buffer (TLB) Hits": {
+                "desc": "Number of TLB hits",
+                "vis": 100000000,
+                "val": 109405
+            },
+            "Transition Lookaside Buffer (TLB) Misses": {
+                "desc": "Number of TLB misses",
+                "vis": 100000000,
+                "val": 1
+            },
+            "Transition Lookaside Buffer (TLB) Hit Percent": {
+                "desc": "Free Expression: ((top.cpu.core0.fetch.itlb.stats.tlb_hits/(top.cpu.core0.fetch.itlb.stats.tlb_hits+top.cpu.core0.fetch.itlb.stats.tlb_misses))*100)",
+                "vis": 100000000,
+                "val": 99.9991
+            },
+            "Number of Bonded Loads": {
+                "desc": "Bonded loads",
+                "vis": 100000000,
+                "val": 8823
+            },
+            "Number of Bonded Stores": {
+                "desc": "Bonded stores",
+                "vis": 100000000,
+                "val": 8913
+            },
+            "Number of Misaligned Bonded Loads": {
+                "desc": "Bondable loads that are misaligned",
+                "vis": 100000000,
+                "val": 1
+            },
+            "Number of Misaligned Bonded Stores": {
+                "desc": "Bondable stores that are misaligned",
+                "vis": 100000000,
+                "val": 1
+            },
+            "Misaligned Loads": {
+                "desc": "Number of misaligned non-bonded non-atomic loads dispatched to LSU",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Misaligned Stores": {
+                "desc": "Number of misaligned non-bonded non-atomic stores dispatched to LSU",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Number of Good Load Bonds": {
+                "desc": "Number of good bonded loads dispatched to LSU",
+                "vis": 100000000,
+                "val": 8822
+            },
+            "Number of Good Store Bonds": {
+                "desc": "Number of good bonded stores dispatched to LSU",
+                "vis": 100000000,
+                "val": 8912
+            },
+            "Number of Bad Load Bonds": {
+                "desc": "Number of bad bonded loads dispatched to LSU",
+                "vis": 100000000,
+                "val": 1
+            },
+            "Number of Bad Store Bonds": {
+                "desc": "Number of bad bonded stores dispatched to LSU",
+                "vis": 100000000,
+                "val": 1
+            },
+            "Percentage of Good Load Bonds": {
+                "desc": "Free Expression: (((top.cpu.core0.decode.stats.bonded_loads-top.cpu.core0.lsu.stats.bonded_loads_bad)/top.cpu.core0.decode.stats.bonded_loads)*100)",
+                "vis": 100000000,
+                "val": 99.9887
+            },
+            "Percentage of Good Store Bonds": {
+                "desc": "Free Expression: (((top.cpu.core0.decode.stats.bonded_stores-top.cpu.core0.lsu.stats.bonded_stores_bad)/top.cpu.core0.decode.stats.bonded_stores)*100)",
+                "vis": 100000000,
+                "val": 99.9888
+            },
+            "Number of Load Store Unit (LSU) Replays (flushes)": {
+                "desc": "Number of instruction flushes at LSU",
+                "vis": 100000000,
+                "val": 148
+            },
+            "Level 1 Data Cache (L1DCache) Hits": {
+                "desc": "Number of DL1 cache hits",
+                "vis": 100000000,
+                "val": 75982
+            },
+            "Level 1 Data Cache (L1DCache) Misses": {
+                "desc": "Number of DL1 cache misses",
+                "vis": 100000000,
+                "val": 110
+            },
+            "Level 1 Data Cache (L1DCache) Hit Percent": {
+                "desc": "Free Expression: ((top.cpu.core0.dcache.stats.dl1_cache_hits/(top.cpu.core0.dcache.stats.dl1_cache_hits+top.cpu.core0.dcache.stats.dl1_cache_misses))*100)",
+                "vis": 100000000,
+                "val": 99.8554
+            },
+            "Level 1 Data Cache (L1DCache) Hits Within a Demand": {
+                "desc": "Number of DL1 cache hits by demands",
+                "vis": 100000000,
+                "val": 75982
+            },
+            "Data Translation Lookaside Buffer (DTLB) Hits": {
+                "desc": "Number of DTLB hits",
+                "vis": 100000000,
+                "val": 76090
+            },
+            "Data Translation Lookaside Buffer (DTLB) Misses": {
+                "desc": "Number of DTLB misses",
+                "vis": 100000000,
+                "val": 5
+            },
+            "Fixed Page Size Translation Lookaside Buffer (FTLB) Hits": {
+                "desc": "Number of FTLB hits",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Fixed Page Size Translation Lookaside Buffer (FTLB) Misses": {
+                "desc": "Number of FTLB misses",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Variable Page Size Translation Lookaside Buffer (VTLB) Hits": {
+                "desc": "Number of VTLB hits",
+                "vis": 100000000,
+                "val": 2
+            },
+            "Variable Page Size Translation Lookaside Buffer (VTLB) Misses": {
+                "desc": "Number of VTLB misses",
+                "vis": 100000000,
+                "val": 4
+            },
+            "Level 2 Translation Lookaside Buffer (L2TLB) Hits": {
+                "desc": "Number of L2TLB hits",
+                "vis": 100000000,
+                "val": 2
+            },
+            "Level 2 Translation Lookaside Buffer (L2TLB) Misses": {
+                "desc": "Number of L2TLB misses",
+                "vis": 100000000,
+                "val": 4
+            },
+            "Arithmetic Logic Unit (ALU) Stalled, Unit Not Ready": {
+                "desc": "ALU Unit not ready aggregate",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Arithmetic Logic Unit (ALU) Stalled, Ops Not Ready": {
+                "desc": "ALU Instruction not ready aggregate",
+                "vis": 100000000,
+                "val": 102708
+            },
+            "Instructions Executed on Arithmetic Logic Unit (ALU) 0": {
+                "desc": "Total instructions executed",
+                "vis": 100000000,
+                "val": 12095
+            },
+            "Instructions Executed on Arithmetic Logic Unit (ALU) 1": {
+                "desc": "Total instructions executed",
+                "vis": 100000000,
+                "val": 53031
+            },
+            "Instructions Executed on Floating Point Unit (FPU) 0": {
+                "desc": "Total instructions executed",
+                "vis": 100000000,
+                "val": 17179
+            },
+            "Instructions Executed on Floating Point Unit (FPU) 1": {
+                "desc": "Total instructions executed",
+                "vis": 100000000,
+                "val": 8741
+            },
+            "Load Store Unit (LSU) Stall None (cycles)": {
+                "desc": "No Stalls Detected",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Load Queue Full Stall (cycles)": {
+                "desc": "Load Queue Full",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Store Queue Full Stall (cycles)": {
+                "desc": "Store Queue Full",
+                "vis": 100000000,
+                "val": 0
+            },
+            "Message Queue Full Stall (cycles)": {
+                "desc": "MSQ Full",
+                "vis": 100000000,
+                "val": 0
+            },
+            "ordered_keys": [
+                "Total Cycles Consumed",
+                "Total Instructions Retired",
+                "Instructions Per Cycle (IPC)",
+                "Total Flushes (mispredicts, exceptions, hazards)",
+                "Total Mispredicts Per 1K Instructions",
+                "Level 1 Instruction Cache (L1ICache) Hits",
+                "Level 1 Instruction Cache (L1ICache) Misses",
+                "Level 1 Instruction Cache (L1ICache) Hit Percent",
+                "Transition Lookaside Buffer (TLB) Hits",
+                "Transition Lookaside Buffer (TLB) Misses",
+                "Transition Lookaside Buffer (TLB) Hit Percent",
+                "Number of Bonded Loads",
+                "Number of Bonded Stores",
+                "Number of Misaligned Bonded Loads",
+                "Number of Misaligned Bonded Stores",
+                "Misaligned Loads",
+                "Misaligned Stores",
+                "Number of Good Load Bonds",
+                "Number of Good Store Bonds",
+                "Number of Bad Load Bonds",
+                "Number of Bad Store Bonds",
+                "Percentage of Good Load Bonds",
+                "Percentage of Good Store Bonds",
+                "Number of Load Store Unit (LSU) Replays (flushes)",
+                "Level 1 Data Cache (L1DCache) Hits",
+                "Level 1 Data Cache (L1DCache) Misses",
+                "Level 1 Data Cache (L1DCache) Hit Percent",
+                "Level 1 Data Cache (L1DCache) Hits Within a Demand",
+                "Data Translation Lookaside Buffer (DTLB) Hits",
+                "Data Translation Lookaside Buffer (DTLB) Misses",
+                "Fixed Page Size Translation Lookaside Buffer (FTLB) Hits",
+                "Fixed Page Size Translation Lookaside Buffer (FTLB) Misses",
+                "Variable Page Size Translation Lookaside Buffer (VTLB) Hits",
+                "Variable Page Size Translation Lookaside Buffer (VTLB) Misses",
+                "Level 2 Translation Lookaside Buffer (L2TLB) Hits",
+                "Level 2 Translation Lookaside Buffer (L2TLB) Misses",
+                "Arithmetic Logic Unit (ALU) Stalled, Unit Not Ready",
+                "Arithmetic Logic Unit (ALU) Stalled, Ops Not Ready",
+                "Instructions Executed on Arithmetic Logic Unit (ALU) 0",
+                "Instructions Executed on Arithmetic Logic Unit (ALU) 1",
+                "Instructions Executed on Floating Point Unit (FPU) 0",
+                "Instructions Executed on Floating Point Unit (FPU) 1",
+                "Load Store Unit (LSU) Stall None (cycles)",
+                "Load Queue Full Stall (cycles)",
+                "Store Queue Full Stall (cycles)",
+                "Message Queue Full Stall (cycles)"
+            ]
+        }
+    },
+    "vis": {
+        "hidden": 0,
+        "support": 1000000,
+        "detail": 10000000,
+        "normal": 100000000,
+        "summary": 200000000,
+        "critical": 1000000000
+    },
+    "siminfo": {
+        "name": "Shinro RISC-V Perf Model ",
+        "sim_version": " 418caef",
+        "sparta_version": "map_v2.0.22",
+        "json_report_version": "2.1",
+        "reproduction": "shinro:418caef stf_lib:bedc708 mavis:a0215df"
+    },
+    "report_metadata": {
+        "arch": "I8500_(1_thread)",
+        "report_format": "json"
+    }
+}

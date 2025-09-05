@@ -6,7 +6,9 @@
 
 ## 🚀 Advanced CPU Performance Analysis Made Easy
 
-**ATLAS Explorer** is MIPS' cutting-edge cloud-based performance analysis platform that enables deep insights into CPU behavior, parallel computing efficiency, and optimization opportunities. This Python library provides seamless access to ATLAS Explorer's powerful simulation capabilities through intuitive **Jupyter notebooks** and flexible **command-line tools**.
+**ATLAS Explorer 3.0** is MIPS' cutting-edge cloud-based performance analysis platform that enables deep insights into CPU behavior, parallel computing efficiency, and optimization opportunities. This Python library provides seamless access to ATLAS Explorer's powerful simulation capabilities through intuitive **Jupyter notebooks** and flexible **command-line tools**.
+
+> 🎉 **New in Version 3.0**: Complete modular architecture with 101x performance improvements, enhanced security, and streamlined installation via `uv` or `pip`!
 
 ### ✨ What Makes ATLAS Explorer Special
 
@@ -52,7 +54,7 @@ uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
 Perfect for scripted performance testing and continuous integration:
 
 ```bash
-# Single core experiment
+# Single core experiment (from cloned repository)
 uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf
 
 # Multicore experiment  
@@ -64,39 +66,47 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
 ### 📋 Prerequisites
 
 - **Python 3.12** (required for optimal compatibility)
-- **[uv](https://github.com/astral-sh/uv)** (recommended for dependency management)
+- **[uv](https://github.com/astral-sh/uv)** (recommended) or **pip** for package management
 - **Git** (for cloning the repository)
-- **Jupyter** (for interactive notebook experience)
 
 ### 🚀 Quick Setup (3 Steps)
 
-1. **Clone and enter the repository:**
+1. **Clone the official repository:**
    ```bash
    git clone https://github.com/MIPS/mips-ae-pylib.git
    cd mips-ae-pylib
    ```
 
-2. **Set up environment and install dependencies:**
+2. **Install dependencies and the package:**
    ```bash
-   uv sync --group notebooks             # Install all dependencies including Jupyter notebook support
+   # Using uv (recommended)
+   uv sync
+   uv pip install -e .
+   
+   # Or using pip
+   pip install -e .
    ```
-   > 💡 **Note**: This project uses modern `uv` dependency management. The `uv sync` command automatically creates a virtual environment and installs all dependencies.
 
 3. **Configure your ATLAS Explorer credentials:**
    ```bash
-   uv run atlasexplorer/atlasexplorer.py configure
+   # Interactive configuration
+   atlasexplorer configure
+   
+   # Or set environment variable
+   export MIPS_ATLAS_CONFIG=<apikey>:<channel>:<region>
    ```
-   This will prompt for your API key, channel, and region, then save them securely.
 
 ### 🎯 Launch Your First Analysis
 
 **For interactive learning (recommended):**
 ```bash
+# Launch Jupyter (after cloning and installing)
 uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **For quick command-line testing:**
 ```bash
+# Run single-core analysis (from the cloned repository)
 uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --channel development
 ```
 
@@ -109,7 +119,7 @@ ATLAS Explorer requires cloud credentials for accessing simulation services. We 
 ### 🎯 Interactive Setup (Recommended)
 
 ```bash
-uv run atlasexplorer/atlasexplorer.py configure
+atlasexplorer configure
 ```
 
 This guided setup will:
@@ -151,7 +161,7 @@ Our enhanced notebooks provide comprehensive, beginner-friendly guidance for CPU
 #### 🧮 Single-Core Analysis Notebook
 
 ```bash
-# Launch Jupyter and open the single-core analysis notebook
+# Launch Jupyter and open the single-core analysis notebook (from cloned repo)
 uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
@@ -171,7 +181,7 @@ uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 #### 🚀 Multicore Analysis Notebook  
 
 ```bash
-# Launch the advanced parallel computing analysis
+# Launch the advanced parallel computing analysis (from cloned repo)
 uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
 ```
 
@@ -194,7 +204,7 @@ Perfect for CI/CD, scripting, and batch processing:
 
 #### Single-Core Experiments
 ```bash
-# Basic single-core analysis
+# Basic single-core analysis (from cloned repository)
 uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --channel development --core "I8500_(1_thread)"
 
 # With custom settings
@@ -208,7 +218,7 @@ uv run examples/ae_singlecore.py \
 
 #### Multicore Experiments
 ```bash
-# Multi-workload parallel analysis  
+# Multi-workload parallel analysis (from cloned repository)
 uv run examples/ae_multicore.py \
   --elf resources/mandelbrot_rv64_O0.elf resources/memcpy_rv64.elf \
   --channel development \
@@ -259,30 +269,33 @@ uv run examples/ae_multicore.py \
 ### 🚀 Quick Testing
 
 ```bash
-# Run all tests (244 comprehensive tests)
-uv run python -m pytest -s
+# Run all tests (from cloned repository)
+uv run python -m pytest
 
 # Run all tests with detailed coverage report
 uv run python -m pytest --cov=atlasexplorer --cov-report=term-missing --cov-report=html
 
 # Test specific functionality
-uv run python -m pytest -s tests/test_ae_singlecore.py
-uv run python -m pytest -s tests/test_ae_multicore.py
-uv run python -m pytest -s tests/test_elf_parser.py      # ELF analysis testing
-uv run python -m pytest -s tests/test_reports.py        # Reports module testing
-uv run python -m pytest -s tests/test_api_client.py     # HTTP client testing
+uv run python -m pytest tests/test_ae_singlecore.py
+uv run python -m pytest tests/test_ae_multicore.py
+uv run python -m pytest tests/test_elf_parser.py      # ELF analysis testing
+uv run python -m pytest tests/test_reports.py        # Reports module testing
+uv run python -m pytest tests/test_api_client.py     # HTTP client testing
 ```
 
 ### 🔧 Development Setup
 
 ```bash
-# Install all dependencies including development tools
-uv sync --group dev
+# Clone and install for development
+git clone https://github.com/MIPS/mips-ae-pylib.git
+cd mips-ae-pylib
+uv sync
+uv pip install -e .
 
-# Run comprehensive test suite with coverage (269 tests)
+# Run comprehensive test suite with coverage
 uv run python -m pytest --cov=atlasexplorer --cov-report=html
 
-# View detailed coverage report (79% overall coverage)
+# View detailed coverage report
 open htmlcov/index.html  # Opens detailed coverage analysis in browser
 
 # Run specific module tests with high coverage
@@ -324,16 +337,46 @@ The project includes GitHub Actions workflows that:
 💾 Cache Hit Rates Maintained: >99% under parallel load
 ```
 
-## 📁 Project Structure
+## 📁 Package Structure
 
+**After cloning and installing, you'll have access to:**
+
+```python
+# Core Atlas Explorer functionality
+from atlasexplorer import AtlasExplorer, Experiment
+from atlasexplorer.core import AtlasConfig, AtlasConstants
+from atlasexplorer.security import SecureEncryption
+from atlasexplorer.network import AtlasAPIClient
+from atlasexplorer.analysis import ELFAnalyzer, SummaryReport
+```
+
+**Repository structure:**
 ```
 mips-ae-pylib/
 ├── 📓 notebooks/                    # 🌟 Enhanced Jupyter Notebooks
 │   ├── ae_singlecore_notebook.ipynb    # Single-core analysis with tutorials
 │   └── ae_multicore_notebook.ipynb     # Multicore & parallel computing
-├── 📦 atlasexplorer/                # Core library
-│   ├── __init__.py
-│   └── atlasexplorer.py
+├── 📦 atlasexplorer/                # 🚀 Modular Core Library
+│   ├── __init__.py                      # Package initialization
+│   ├── core/                           # Core functionality
+│   │   ├── client.py                   # AtlasExplorer main client
+│   │   ├── experiment.py              # Experiment management
+│   │   ├── config.py                  # Configuration handling
+│   │   └── constants.py               # Constants and settings
+│   ├── security/                       # Security and encryption
+│   │   └── encryption.py              # Secure encryption utilities
+│   ├── network/                        # Network and API communication
+│   │   └── api_client.py              # HTTP API client
+│   ├── analysis/                       # Analysis and reporting
+│   │   ├── elf_parser.py              # ELF file analysis
+│   │   └── reports.py                 # Report generation
+│   ├── cli/                           # Command-line interface
+│   │   ├── commands.py                # CLI commands
+│   │   └── interactive.py             # Interactive CLI
+│   └── utils/                          # Utilities and exceptions
+│       ├── exceptions.py              # Custom exceptions
+│       ├── deprecation.py             # Deprecation utilities
+│       └── legacy.py                  # Legacy compatibility
 ├── 🎯 examples/                     # Command-line tools  
 │   ├── ae_singlecore.py                # Single-core experiments
 │   └── ae_multicore.py                 # Multicore experiments
@@ -343,7 +386,47 @@ mips-ae-pylib/
 │   └── memcpy_rv64.elf                 # Memory-intensive
 ├── 🧪 tests/                       # Test suite
 │   ├── test_ae_singlecore.py
-│   └── test_ae_multicore.py  
+│   ├── test_ae_multicore.py
+│   └── test_api_basic.py               # Basic API client tests
+└── 📖 README.md                    # This guide
+```
+├── 📓 notebooks/                    # 🌟 Enhanced Jupyter Notebooks
+│   ├── ae_singlecore_notebook.ipynb    # Single-core analysis with tutorials
+│   └── ae_multicore_notebook.ipynb     # Multicore & parallel computing
+├── 📦 atlasexplorer/                # 🚀 Modular Core Library (Refactored)
+│   ├── __init__.py                      # Package initialization
+│   ├── core/                           # Core functionality
+│   │   ├── client.py                   # AtlasExplorer main client
+│   │   ├── experiment.py              # Experiment management
+│   │   ├── config.py                  # Configuration handling
+│   │   └── constants.py               # Constants and settings
+│   ├── security/                       # Security and encryption
+│   │   └── encryption.py              # Secure encryption utilities
+│   ├── network/                        # Network and API communication
+│   │   └── api_client.py              # HTTP API client
+│   ├── analysis/                       # Analysis and reporting
+│   │   ├── elf_parser.py              # ELF file analysis
+│   │   └── reports.py                 # Report generation
+│   ├── cli/                           # Command-line interface
+│   │   ├── commands.py                # CLI commands
+│   │   └── interactive.py             # Interactive CLI
+│   └── utils/                          # Utilities and exceptions
+│       ├── exceptions.py              # Custom exceptions
+│       ├── deprecation.py             # Deprecation utilities
+│       └── legacy.py                  # Legacy compatibility
+├── 🎯 examples/                     # Command-line tools  
+│   ├── ae_singlecore.py                # Single-core experiments
+│   └── ae_multicore.py                 # Multicore experiments
+├── ⚙️ configure.py                  # Simple configuration script
+├── � run_example.py                # Easy wrapper for running examples
+├── �📊 resources/                    # Sample workloads
+│   ├── mandelbrot_rv64_O0.elf          # Compute-intensive (unoptimized)
+│   ├── mandelbrot_rv64_O3.elf          # Compute-intensive (optimized)
+│   └── memcpy_rv64.elf                 # Memory-intensive
+├── 🧪 tests/                       # Test suite
+│   ├── test_ae_singlecore.py
+│   ├── test_ae_multicore.py
+│   └── test_api_basic.py               # Basic API client tests
 ├── 🎨 assets/                      # Images and branding
 │   └── mips-logo.png
 ├── 📁 myexperiments/               # Experiment results (auto-generated)
@@ -352,39 +435,48 @@ mips-ae-pylib/
 │   ├── env-example                     # Template for manual setup
 │   ├── pyproject.toml                  # Project metadata
 │   └── setup.py                        # Python packaging
-└── 📖 README.md                    # This guide
+└── 📖 README.md                    # Examples documentation
+```
+
+## 🎯 Learning Paths
 ```
 
 ## 🎯 Learning Paths
 
 ### 🌱 **For Performance Analysis Beginners**
 
-1. **Start Here**: `notebooks/ae_singlecore_notebook.ipynb`
+1. **Clone and Install**: 
+   ```bash
+   git clone https://github.com/MIPS/mips-ae-pylib.git
+   cd mips-ae-pylib
+   uv sync && uv pip install -e .
+   ```
+2. **Start Here**: Open `notebooks/ae_singlecore_notebook.ipynb`
    - Learn CPU performance fundamentals
    - Understand IPC, cache behavior, and optimization
    - Explore real experimental data with guided explanations
 
-2. **Next Level**: `notebooks/ae_multicore_notebook.ipynb`  
+3. **Next Level**: `notebooks/ae_multicore_notebook.ipynb`  
    - Master parallel computing concepts
    - Analyze thread load balancing and scaling
    - Understand resource contention and optimization
 
-3. **Advanced Practice**: Command-line experiments
+4. **Advanced Practice**: Command-line experiments
    - Automate performance testing workflows
    - Compare different optimizations (-O0 vs -O3)
    - Build custom analysis pipelines
 
 ### 🚀 **For Performance Engineers**
 
-1. **Quick Start**: Command-line tools for immediate analysis
+1. **Quick Start**: Clone repository and use command-line tools for immediate analysis
 2. **Deep Dive**: Jupyter notebooks for comprehensive insights
 3. **Scale Up**: Multi-configuration experiments and comparative studies
 4. **Integrate**: CI/CD pipeline integration for continuous performance monitoring
 
 ### 👨‍💻 **For Developers & Researchers**
 
-1. **Library Integration**: Use `atlasexplorer.py` directly in your code
-2. **Custom Experiments**: Modify notebook parameters for your workloads  
+1. **Library Integration**: Use `from atlasexplorer import AtlasExplorer` directly in your code
+2. **Custom Experiments**: Modify downloaded notebook examples for your workloads  
 3. **Batch Processing**: Automated performance regression testing
 4. **Research Studies**: Large-scale architecture comparison studies
 
@@ -426,18 +518,19 @@ As of August 29, 2025, the Atlas Explorer Python API has achieved exceptional qu
 ### ❓ **Common Issues**
 
 **Q: "No credentials found" error**  
-A: Run `uv run atlasexplorer/atlasexplorer.py configure` to set up authentication
+A: Run `atlasexplorer configure` to set up authentication (after cloning and installing)
 
 **Q: Installation or dependency errors**  
-A: The project uses modern `uv` dependency management. Make sure you have `uv` installed and use:
-   - `uv sync --group notebooks` (installs everything including Jupyter)
-   - `uv run jupyter notebook` (runs Jupyter in the project environment)
+A: Clone the repository first: `git clone https://github.com/MIPS/mips-ae-pylib.git` then `cd mips-ae-pylib && uv sync && uv pip install -e .`
 
-**Q: Import errors when running notebooks**  
-A: Make sure you installed with notebook support: `uv sync --group notebooks`
+**Q: Import errors when running examples**  
+A: Make sure you've installed the package: `uv pip install -e .` from the cloned repository
 
-**Q: Jupyter notebook won't start**  
-A: Use `uv run jupyter notebook` to run within the project environment
+**Q: ModuleNotFoundError: No module named 'atlasexplorer'**  
+A: Install the package first from the cloned repository: `uv pip install -e .`
+
+**Q: Command not found: 'atlasexplorer'**  
+A: Make sure you've installed the package with `uv pip install -e .` from the cloned repository
 
 **Q: Experiment takes too long**  
 A: Multicore experiments take 2-5 minutes. Single-core takes 30-60 seconds.
@@ -471,7 +564,7 @@ A: These are harmless warnings from the library trying to extract debug informat
 ### 📊 **Comparative Studies**
 
 ```bash
-# Compare compiler optimizations  
+# Compare compiler optimizations (from cloned repository)
 uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O0.elf --expdir study_O0
 uv run examples/ae_singlecore.py --elf resources/mandelbrot_rv64_O3.elf --expdir study_O3
 

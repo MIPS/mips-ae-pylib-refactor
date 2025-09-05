@@ -202,7 +202,23 @@ class InteractiveConfig:
                 return []
             
             data = response.json()
-            return data.get("channels", [])
+            channels_data = data.get("channels", [])
+            
+            # Handle both string lists and object lists
+            channels = []
+            for channel in channels_data:
+                if isinstance(channel, str):
+                    channels.append(channel)
+                elif isinstance(channel, dict):
+                    # Try common keys for channel name
+                    name = channel.get("name") or channel.get("channel") or channel.get("id")
+                    if name:
+                        channels.append(str(name))
+                else:
+                    # Convert to string as fallback
+                    channels.append(str(channel))
+            
+            return channels
             
         except Exception:
             return []

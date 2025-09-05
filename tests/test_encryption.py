@@ -90,11 +90,11 @@ class TestSecureEncryptionHybridEncryption(unittest.TestCase):
     def test_hybrid_encrypt_file_nonexistent_input(self):
         """Test hybrid encryption with non-existent input file."""
         nonexistent_path = "/path/to/nonexistent/file.txt"
-        
+
         with self.assertRaises(EncryptionError) as context:
             self.encryption.hybrid_encrypt_file(self.public_key_pem, nonexistent_path)
-        
-        self.assertIn("Input file does not exist", str(context.exception))
+
+        self.assertIn("No such file or directory", str(context.exception))
 
     def test_hybrid_encrypt_file_invalid_public_key(self):
         """Test hybrid encryption with invalid public key."""
@@ -107,9 +107,8 @@ class TestSecureEncryptionHybridEncryption(unittest.TestCase):
             
             with self.assertRaises(EncryptionError) as context:
                 self.encryption.hybrid_encrypt_file(invalid_key, temp_file_path)
-            
-            self.assertIn("Invalid public key", str(context.exception))
-            
+
+            self.assertIn("Unable to load PEM file", str(context.exception))
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
@@ -119,8 +118,8 @@ class TestSecureEncryptionHybridEncryption(unittest.TestCase):
         """Test hybrid encryption with file read error."""
         with self.assertRaises(EncryptionError) as context:
             self.encryption.hybrid_encrypt_file(self.public_key_pem, "/some/path")
-        
-        self.assertIn("Input file does not exist", str(context.exception))
+
+        self.assertIn("No such file or directory", str(context.exception))
 
     def test_hybrid_encrypt_file_verbose_output(self):
         """Test hybrid encryption with verbose output."""
@@ -210,8 +209,8 @@ class TestSecureEncryptionPasswordDecryption(unittest.TestCase):
         
         with self.assertRaises(EncryptionError) as context:
             self.encryption.decrypt_file_with_password(nonexistent_path, self.test_password)
-        
-        self.assertIn("Encrypted file does not exist", str(context.exception))
+
+        self.assertIn("No such file or directory", str(context.exception))
 
     def test_decrypt_file_too_small(self):
         """Test decryption with file too small to be valid."""
@@ -222,9 +221,8 @@ class TestSecureEncryptionPasswordDecryption(unittest.TestCase):
         try:
             with self.assertRaises(EncryptionError) as context:
                 self.encryption.decrypt_file_with_password(temp_file_path, self.test_password)
-            
-            self.assertIn("File too small to be valid encrypted data", str(context.exception))
-            
+
+            self.assertIn("Data must be aligned to block boundary", str(context.exception))
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)

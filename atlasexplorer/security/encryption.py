@@ -146,3 +146,48 @@ class SecureEncryption:
             
         except Exception as error:
             raise EncryptionError(f"Decryption failed. Please check the password and try again. Error: {error}")
+
+    @staticmethod
+    def generate_salt() -> bytes:
+        """Generate a random salt for encryption.
+        
+        Returns:
+            16 bytes of random data for use as salt
+        """
+        return get_random_bytes(16)
+    
+    @staticmethod
+    def secure_delete(file_path: Union[str, Path]) -> None:
+        """Securely delete a file by overwriting it with random data.
+        
+        Args:
+            file_path: Path to file to securely delete
+        """
+        path_obj = Path(file_path)
+        
+        # Check if file exists
+        if not path_obj.exists():
+            return  # Nothing to delete
+        
+        try:
+            # Get file size
+            file_size = path_obj.stat().st_size
+            
+            # Overwrite file with random data multiple times
+            with open(path_obj, "r+b") as f:
+                for _ in range(3):  # Multiple overwrites for security
+                    f.seek(0)
+                    f.write(get_random_bytes(file_size))
+                    f.flush()
+                    os.fsync(f.fileno())
+            
+            # Finally delete the file
+            path_obj.unlink()
+            
+        except (IOError, OSError):
+            # If secure deletion fails, try normal deletion
+            try:
+                path_obj.unlink()
+            except (IOError, OSError):
+                # If all deletion attempts fail, silently continue
+                pass

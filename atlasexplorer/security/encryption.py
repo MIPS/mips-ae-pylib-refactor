@@ -1,7 +1,7 @@
-"""Legacy encryption functionality for Atlas Explorer.
+"""Encryption functionality for Atlas Explorer with backend compatibility.
 
-This module replicates the exact encryption format used by the original
-monolithic implementation to maintain API compatibility with the cloud service.
+This module provides encryption/decryption that is compatible with both the new
+TypeScript backend format and maintains backward compatibility with legacy formats.
 """
 
 import os
@@ -18,27 +18,96 @@ from Crypto.Protocol.KDF import scrypt
 
 from ..utils.exceptions import EncryptionError
 
+# Import the new compatible encryption class
+try:
+    from .compatible_encryption import CompatibleEncryption
+    COMPATIBLE_ENCRYPTION_AVAILABLE = True
+except ImportError:
+    COMPATIBLE_ENCRYPTION_AVAILABLE = False
+
 
 class SecureEncryption:
-    """Provides encryption/decryption compatible with the original Atlas Explorer API.
+    """Provides encryption/decryption with automatic backend compatibility.
     
-    This class replicates the exact encryption format from the original monolithic
-    implementation to ensure compatibility with the cloud service backend.
+    This class now uses the new backend-compatible encryption by default,
+    with automatic fallback to legacy formats for existing encrypted files.
     """
     
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, use_legacy_only: bool = False):
         """Initialize the encryption handler.
         
         Args:
             verbose: Enable verbose logging
+            use_legacy_only: Force use of legacy encryption only (for compatibility testing)
         """
         self.verbose = verbose
+        self.use_legacy_only = use_legacy_only
+        
+        # Initialize the appropriate encryption handler
+        if COMPATIBLE_ENCRYPTION_AVAILABLE and not use_legacy_only:
+            self._encryption_handler = CompatibleEncryption(verbose=verbose)
+            if verbose:
+                print("Using new backend-compatible encryption with legacy fallback")
+        else:
+            self._encryption_handler = self
+            if verbose:
+                print("Using legacy encryption only")
     
     def hybrid_encrypt_file(self, public_key_pem: str, input_file: Union[str, Path]) -> None:
+        """Encrypt a file using hybrid encryption.
+        
+        Uses new backend-compatible format by default, with legacy fallback available.
+        
+        Args:
+            public_key_pem: PEM-encoded RSA public key
+            input_file: Path to file to encrypt
+            
+        Raises:
+            EncryptionError: If encryption fails
+        """
+        if hasattr(self._encryption_handler, 'hybrid_encrypt_file') and self._encryption_handler != self:
+            # Use the new compatible encryption
+            try:
+                self._encryption_handler.hybrid_encrypt_file(public_key_pem, input_file)
+                return
+            except Exception as e:
+                if self.verbose:
+                    print(f"New encryption failed, falling back to legacy: {e}")
+                # Fall through to legacy method
+        
+        # Legacy encryption method
+        self._legacy_hybrid_encrypt_file(public_key_pem, input_file)
+    
+    def decrypt_file_with_password(self, src_file_path: Union[str, Path], password: str) -> None:
+        """Decrypt a file using password-based decryption.
+        
+        Automatically detects and handles both new and legacy formats.
+        
+        Args:
+            src_file_path: Path to encrypted file
+            password: Decryption password
+            
+        Raises:
+            EncryptionError: If decryption fails
+        """
+        if hasattr(self._encryption_handler, 'decrypt_file_with_password') and self._encryption_handler != self:
+            # Use the new compatible encryption with auto-detection
+            try:
+                self._encryption_handler.decrypt_file_with_password(src_file_path, password)
+                return
+            except Exception as e:
+                if self.verbose:
+                    print(f"New decryption failed, falling back to legacy: {e}")
+                # Fall through to legacy method
+        
+        # Legacy decryption method
+        self._legacy_decrypt_file_with_password(src_file_path, password)
+    
+    def _legacy_hybrid_encrypt_file(self, public_key_pem: str, input_file: Union[str, Path]) -> None:
         """Encrypt a file using the original hybrid encryption format.
         
         This exactly replicates the original __hybrid_encrypt method to maintain
-        API compatibility with the cloud service.
+        API compatibility with legacy systems.
         
         Args:
             public_key_pem: PEM-encoded RSA public key
@@ -99,12 +168,12 @@ class SecureEncryption:
             os.rename(output_file, input_file)
 
             if self.verbose:
-                print("File encrypted using secure hybrid approach.")
+                print("File encrypted using legacy hybrid approach.")
 
         except Exception as error:
-            raise EncryptionError(f"Encryption error: {error}")
+            raise EncryptionError(f"Legacy encryption error: {error}")
 
-    def decrypt_file_with_password(self, src_file_path: Union[str, Path], password: str) -> None:
+    def _legacy_decrypt_file_with_password(self, src_file_path: Union[str, Path], password: str) -> None:
         """Decrypt a file using the original password-based decryption.
         
         This exactly replicates the original __decrypt_file_with_password method.

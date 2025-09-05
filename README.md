@@ -26,7 +26,7 @@ Our **enhanced Jupyter notebooks** provide a guided, educational experience perf
 #### **Single-Core Performance Analysis**
 ```bash
 # Launch the comprehensive single-core analysis notebook
-uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **What you'll learn:**
@@ -39,7 +39,7 @@ uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 #### **Multicore & Parallel Computing Analysis**
 ```bash
 # Explore advanced parallel performance analysis
-uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
+jupyter notebook notebooks/ae_multicore_notebook.ipynb
 ```
 
 **What you'll master:**
@@ -87,6 +87,15 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
    pip install -e .
    ```
 
+   **For Jupyter Notebook support (recommended for interactive analysis):**
+   ```bash
+   # Install with notebook dependencies (note: quotes required for zsh shell)
+   uv pip install -e '.[notebooks]'
+   
+   # Or using pip
+   pip install -e '.[notebooks]'
+   ```
+
 3. **Configure your ATLAS Explorer credentials:**
    ```bash
    # Interactive configuration
@@ -96,12 +105,48 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
    export MIPS_ATLAS_CONFIG=<apikey>:<channel>:<region>
    ```
 
+### 🪐 Jupyter Notebook Setup (For Interactive Analysis)
+
+**If you want to use the enhanced Jupyter notebooks for guided analysis:**
+
+1. **Install notebook dependencies:**
+   ```bash
+   # For zsh shell (macOS default) - quotes are required
+   uv pip install -e '.[notebooks]'
+   
+   # For bash shell
+   uv pip install -e .[notebooks]
+   
+   # Alternative: using pip
+   pip install -e '.[notebooks]'
+   ```
+
+2. **Launch Jupyter:**
+   ```bash
+   # Start Jupyter Notebook
+   jupyter notebook
+   
+   # Or start JupyterLab (more advanced interface)
+   jupyter lab
+   ```
+
+3. **Open the tutorials:**
+   - Navigate to `notebooks/ae_singlecore_notebook.ipynb` for single-core analysis
+   - Navigate to `notebooks/ae_multicore_notebook.ipynb` for multicore analysis
+
+> 💡 **Shell Note**: If you're using zsh (default on macOS), you must quote the bracket notation: `'.[notebooks]'` to prevent shell glob expansion.
+
 ### 🎯 Launch Your First Analysis
 
 **For interactive learning (recommended):**
 ```bash
-# Launch Jupyter (after cloning and installing)
-uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+# First install notebook dependencies (if not already done)
+uv pip install -e '.[notebooks]'
+
+# Launch Jupyter (from the cloned repository)
+jupyter notebook
+
+# Then open: notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **For quick command-line testing:**
@@ -161,8 +206,8 @@ Our enhanced notebooks provide comprehensive, beginner-friendly guidance for CPU
 #### 🧮 Single-Core Analysis Notebook
 
 ```bash
-# Launch Jupyter and open the single-core analysis notebook (from cloned repo)
-uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+# Launch Jupyter and open the single-core analysis notebook (requires notebook dependencies)
+jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 ```
 
 **Perfect for learning:**
@@ -181,8 +226,8 @@ uv run jupyter notebook notebooks/ae_singlecore_notebook.ipynb
 #### 🚀 Multicore Analysis Notebook  
 
 ```bash
-# Launch the advanced parallel computing analysis (from cloned repo)
-uv run jupyter notebook notebooks/ae_multicore_notebook.ipynb
+# Launch the advanced parallel computing analysis (requires notebook dependencies)
+jupyter notebook notebooks/ae_multicore_notebook.ipynb
 ```
 
 **Master parallel computing:**
@@ -449,14 +494,20 @@ mips-ae-pylib/
    ```bash
    git clone https://github.com/MIPS/mips-ae-pylib.git
    cd mips-ae-pylib
-   uv sync && uv pip install -e .
+   uv sync && uv pip install -e '.[notebooks]'
    ```
 2. **Start Here**: Open `notebooks/ae_singlecore_notebook.ipynb`
+   ```bash
+   jupyter notebook notebooks/ae_singlecore_notebook.ipynb
+   ```
    - Learn CPU performance fundamentals
    - Understand IPC, cache behavior, and optimization
    - Explore real experimental data with guided explanations
 
 3. **Next Level**: `notebooks/ae_multicore_notebook.ipynb`  
+   ```bash
+   jupyter notebook notebooks/ae_multicore_notebook.ipynb
+   ```
    - Master parallel computing concepts
    - Analyze thread load balancing and scaling
    - Understand resource contention and optimization
@@ -522,6 +573,15 @@ A: Run `atlasexplorer configure` to set up authentication (after cloning and ins
 
 **Q: Installation or dependency errors**  
 A: Clone the repository first: `git clone https://github.com/MIPS/mips-ae-pylib.git` then `cd mips-ae-pylib && uv sync && uv pip install -e .`
+
+**Q: "zsh: no matches found: .[notebooks]" error**  
+A: Use quotes around the bracket notation for zsh shell: `uv pip install -e '.[notebooks]'`
+
+**Q: Jupyter notebook not found**  
+A: Install notebook dependencies first: `uv pip install -e '.[notebooks]'` then run `jupyter notebook`
+
+**Q: Want to install specific notebook tools?**  
+A: The `[notebooks]` optional dependency group includes: pandas, notebook, ipykernel, and jupyter for comprehensive notebook support
 
 **Q: Import errors when running examples**  
 A: Make sure you've installed the package: `uv pip install -e .` from the cloned repository

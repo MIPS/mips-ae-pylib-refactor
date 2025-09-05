@@ -136,6 +136,8 @@ uv run examples/ae_multicore.py --elf resources/mandelbrot_rv64_O0.elf resources
 
 > 💡 **Shell Note**: If you're using zsh (default on macOS), you must quote the bracket notation: `'.[notebooks]'` to prevent shell glob expansion.
 
+> 🔬 **Notebook Tip**: If you encounter import errors in notebooks, restart the Jupyter kernel (Kernel → Restart) to ensure all dependencies are properly loaded.
+
 ### 🎯 Launch Your First Analysis
 
 **For interactive learning (recommended):**
@@ -579,6 +581,9 @@ A: Use quotes around the bracket notation for zsh shell: `uv pip install -e '.[n
 
 **Q: Jupyter notebook not found**  
 A: Install notebook dependencies first: `uv pip install -e '.[notebooks]'` then run `jupyter notebook`
+
+**Q: NameError: name 'pd' is not defined in notebook**  
+A: Make sure you've installed the notebook dependencies with `uv pip install -e '.[notebooks]'` and restart the Jupyter kernel if needed
 
 **Q: Want to install specific notebook tools?**  
 A: The `[notebooks]` optional dependency group includes: pandas, notebook, ipykernel, and jupyter for comprehensive notebook support

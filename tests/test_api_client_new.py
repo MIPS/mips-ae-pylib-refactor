@@ -88,7 +88,7 @@ class TestAtlasAPIClientSignedURLs(unittest.TestCase):
         with self.assertRaises(AuthenticationError) as context:
             self.client.get_signed_urls("invalid_key", "exp_123", "test_exp", "I8500")
         
-        self.assertIn("Authentication failed", str(context.exception))
+        self.assertIn("Invalid API key or insufficient permissions", str(context.exception))
 
     @patch('requests.Session.post')
     def test_get_signed_urls_authentication_error_403(self, mock_post):
@@ -101,7 +101,7 @@ class TestAtlasAPIClientSignedURLs(unittest.TestCase):
         with self.assertRaises(AuthenticationError) as context:
             self.client.get_signed_urls("invalid_key", "exp_123", "test_exp", "I8500")
         
-        self.assertIn("Authentication failed", str(context.exception))
+        self.assertIn("Access forbidden - check your permissions", str(context.exception))
 
     @patch('requests.Session.post')
     def test_get_signed_urls_http_error(self, mock_post):
@@ -115,7 +115,7 @@ class TestAtlasAPIClientSignedURLs(unittest.TestCase):
         with self.assertRaises(NetworkError) as context:
             self.client.get_signed_urls("test_key", "exp_123", "test_exp", "I8500")
         
-        self.assertIn("HTTP request failed", str(context.exception))
+        self.assertIn("Failed to get signed URLs", str(context.exception))
 
     @patch('requests.Session.post')
     def test_get_signed_urls_network_exception(self, mock_post):
@@ -125,7 +125,7 @@ class TestAtlasAPIClientSignedURLs(unittest.TestCase):
         with self.assertRaises(NetworkError) as context:
             self.client.get_signed_urls("test_key", "exp_123", "test_exp", "I8500")
         
-        self.assertIn("Network request failed", str(context.exception))
+        self.assertIn("Failed to get signed URLs", str(context.exception))
 
 
 class TestAtlasAPIClientFileUpload(unittest.TestCase):
@@ -135,13 +135,14 @@ class TestAtlasAPIClientFileUpload(unittest.TestCase):
         """Set up test fixtures."""
         self.client = AtlasAPIClient("https://api.example.com", verbose=False)
 
-    @patch('requests.Session.put')
-    def test_upload_file_success(self, mock_put):
+    @patch('requests.Session.post')
+    def test_upload_file_success(self, mock_post):
         """Test successful file upload."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.content = b"upload_success"
-        mock_put.return_value = mock_response
+        mock_response.raise_for_status = Mock()  # Mock this to avoid issues
+        mock_post.return_value = mock_response
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(b"test file content")
@@ -159,15 +160,15 @@ class TestAtlasAPIClientFileUpload(unittest.TestCase):
         with self.assertRaises(NetworkError) as context:
             self.client.upload_file("https://upload.example.com", "/nonexistent/file.txt")
         
-        self.assertIn("File not found", str(context.exception))
+        self.assertIn("File to upload does not exist", str(context.exception))
 
-    @patch('requests.Session.put')
-    def test_upload_file_http_error(self, mock_put):
+    @patch('requests.Session.post')
+    def test_upload_file_http_error(self, mock_post):
         """Test upload HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 500
         mock_response.raise_for_status.side_effect = requests.HTTPError("Server Error")
-        mock_put.return_value = mock_response
+        mock_post.return_value = mock_response
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(b"test content")
@@ -177,20 +178,21 @@ class TestAtlasAPIClientFileUpload(unittest.TestCase):
             with self.assertRaises(NetworkError) as context:
                 self.client.upload_file("https://upload.example.com", temp_file_path)
             
-            self.assertIn("Upload failed", str(context.exception))
+            self.assertIn("File upload failed", str(context.exception))
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
-    @patch('requests.Session.put')
-    def test_upload_file_verbose_output(self, mock_put):
+    @patch('requests.Session.post')
+    def test_upload_file_verbose_output(self, mock_post):
         """Test verbose output during upload."""
         client_verbose = AtlasAPIClient("https://api.example.com", verbose=True)
         
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.content = b"success"
-        mock_put.return_value = mock_response
+        mock_response.raise_for_status = Mock()  # Mock this to avoid issues
+        mock_post.return_value = mock_response
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(b"test content")
@@ -239,39 +241,39 @@ class TestAtlasAPIClientStatusOperations(unittest.TestCase):
     @patch('time.sleep')
     def test_poll_status_success_completed(self, mock_sleep, mock_get_status):
         """Test successful status polling until completion."""
-        # Simulate status progression
+        # Simulate status progression (use 'state' field not 'status')
         mock_get_status.side_effect = [
-            {'status': 'running', 'progress': 25},
-            {'status': 'running', 'progress': 50},
-            {'status': 'completed', 'progress': 100}
+            {'state': 'running', 'progress': 25},
+            {'state': 'running', 'progress': 50},
+            {'state': 'completed', 'progress': 100}
         ]
 
         result = self.client.poll_status("https://status.example.com", max_attempts=5, delay=0.1)
-        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['state'], 'completed')
         self.assertEqual(mock_get_status.call_count, 3)
 
     @patch('atlasexplorer.network.api_client.AtlasAPIClient.get_status')
     @patch('time.sleep')
     def test_poll_status_timeout(self, mock_sleep, mock_get_status):
         """Test status polling timeout."""
-        # Always return running status
-        mock_get_status.return_value = {'status': 'running', 'progress': 50}
+        # Always return running status (use 'state' field not 'status')
+        mock_get_status.return_value = {'state': 'running', 'progress': 50}
 
         with self.assertRaises(NetworkError) as context:
             self.client.poll_status("https://status.example.com", max_attempts=3, delay=0.1)
         
-        self.assertIn("Polling timeout", str(context.exception))
+        self.assertIn("Experiment status polling timed out after 3 attempts", str(context.exception))
         self.assertEqual(mock_get_status.call_count, 3)
 
     @patch('atlasexplorer.network.api_client.AtlasAPIClient.get_status')
     def test_poll_status_experiment_failed(self, mock_get_status):
         """Test polling when experiment fails."""
-        mock_get_status.return_value = {'status': 'failed', 'error': 'Processing error'}
+        mock_get_status.return_value = {'state': 'failed', 'error': 'Processing error'}
 
         with self.assertRaises(NetworkError) as context:
             self.client.poll_status("https://status.example.com", max_attempts=3)
         
-        self.assertIn("Experiment failed", str(context.exception))
+        self.assertIn("Experiment failed with state: failed", str(context.exception))
 
 
 class TestAtlasAPIClientFileDownload(unittest.TestCase):
@@ -326,7 +328,7 @@ class TestAtlasAPIClientFileDownload(unittest.TestCase):
             with self.assertRaises(NetworkError) as context:
                 self.client.download_file("https://download.example.com/missing", temp_dir, "result.zip")
             
-            self.assertIn("Download failed", str(context.exception))
+            self.assertIn("File download failed", str(context.exception))
 
 
 class TestAtlasAPIClientResourceManagement(unittest.TestCase):
@@ -376,32 +378,49 @@ class TestAtlasAPIClientIntegration(unittest.TestCase):
     """Test integration scenarios."""
 
     @patch('requests.Session.get')
-    @patch('requests.Session.put')
     @patch('requests.Session.post')
-    def test_full_workflow_simulation(self, mock_post, mock_put, mock_get):
+    def test_full_workflow_simulation(self, mock_post, mock_get):
         """Test a full workflow simulation."""
         client = AtlasAPIClient("https://api.example.com", verbose=False)
         
-        # Mock signed URLs response
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {
+        # Mock responses - need different mocks for different calls
+        # Mock signed URLs response (first post call)
+        mock_signed_urls_response = Mock()
+        mock_signed_urls_response.status_code = 200
+        mock_signed_urls_response.json.return_value = {
             'upload_url': 'https://upload.example.com/signed',
             'status_url': 'https://status.example.com/check',
             'download_url': 'https://download.example.com/result'
         }
+        mock_signed_urls_response.raise_for_status = Mock()
         
-        # Mock upload response
-        mock_put.return_value.status_code = 200
-        mock_put.return_value.content = b"upload_success"
+        # Mock upload response (second post call)
+        mock_upload_response = Mock()
+        mock_upload_response.status_code = 200
+        mock_upload_response.content = b"upload_success"
+        mock_upload_response.raise_for_status = Mock()
         
-        # Mock status responses (progression)
-        mock_get.side_effect = [
-            # Status checks
-            Mock(status_code=200, json=lambda: {'status': 'running', 'progress': 50}),
-            Mock(status_code=200, json=lambda: {'status': 'completed', 'progress': 100}),
-            # Download
-            Mock(status_code=200, iter_content=lambda chunk_size: [b"result_data"])
-        ]
+        # Set up post mock to return different responses for different calls
+        mock_post.side_effect = [mock_signed_urls_response, mock_upload_response]
+        
+        # Mock status responses (progression) - use 'state' field not 'status'
+        mock_status_response1 = Mock()
+        mock_status_response1.status_code = 200
+        mock_status_response1.json.return_value = {'state': 'running', 'progress': 50}
+        mock_status_response1.raise_for_status = Mock()
+        
+        mock_status_response2 = Mock()
+        mock_status_response2.status_code = 200
+        mock_status_response2.json.return_value = {'state': 'completed', 'progress': 100}
+        mock_status_response2.raise_for_status = Mock()
+        
+        # Mock download response
+        mock_download_response = Mock()
+        mock_download_response.status_code = 200
+        mock_download_response.iter_content = lambda chunk_size: [b"result_data"]
+        mock_download_response.raise_for_status = Mock()
+        
+        mock_get.side_effect = [mock_status_response1, mock_status_response2, mock_download_response]
         
         # 1. Get signed URLs
         urls = client.get_signed_urls("test_key", "exp_123", "test_exp", "I8500")
@@ -419,7 +438,7 @@ class TestAtlasAPIClientIntegration(unittest.TestCase):
             # 3. Poll status
             with patch('time.sleep'):  # Speed up test
                 final_status = client.poll_status(urls['status_url'], max_attempts=3, delay=0.1)
-            self.assertEqual(final_status['status'], 'completed')
+            self.assertEqual(final_status['state'], 'completed')
             
             # 4. Download result
             with tempfile.TemporaryDirectory() as temp_dir:

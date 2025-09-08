@@ -424,17 +424,19 @@ class Experiment:
                         found_result = True
                     break
                 elif status["code"] == 404:
-                    break
+                    raise ExperimentError("Experiment not found (404)")
                 elif status["code"] == 500:
                     print("error generating experiment, escaping now")
-                    break
+                    raise ExperimentError("Server error (500)")
                     
             except (requests.RequestException, ValueError, KeyError) as e:
                 if self.verbose:
                     print(f"Status check error: {e}, retrying...")
                 continue
         
-        # Don't raise an error - just continue to unpacking like original
+        # If we've exhausted all retries and haven't found results, raise timeout error
+        if not found_result:
+            raise ExperimentError("Experiment monitoring timed out")
     
     def _download_result_file(self, url: str, filename: str) -> None:
         """Download result file from cloud."""
@@ -498,11 +500,7 @@ class Experiment:
                 if elf_path and os.path.exists(elf_path):
                     self.elf_analyzer.snapshot_source_files(Path(elf_path))
         else:
-            # This matches the original behavior - just warn, don't error
-            if self.verbose:
-                print(f"Package does not exist, skipped: {result_file}")
-                print("Experiment was submitted but results are not yet available.")
-                print("Check back later or check the cloud console for experiment status.")
+            raise ExperimentError(f"Result package not found: {result_file}")
     
     def _clean_summaries(self, report_type: str) -> None:
         """Clean up invalid summary reports."""
@@ -576,3 +574,81 @@ class Experiment:
         )
         
         return self.elf_analyzer.snapshot_source_files(Path(elf_path), verbose=self.verbose)
+    
+    def _upload_experiment_package(self, package_path: str, config: Dict[str, Any]) -> None:
+        """Upload experiment package to cloud platform.
+        
+        This is an alias for _upload_package to maintain test compatibility.
+        
+        Args:
+            package_path: Path to the experiment package
+            config: Experiment configuration
+        """
+        # Get signed URLs from cloud
+        resp = self.atlas.getSignedUrls(config["uuid"], self.expname, self.core)
+        resp_data = resp.json()
+        
+        package_url = resp_data["exppackageurl"]
+        self._upload_package(package_url, package_path)
+        
+        if self.verbose:
+            print(f"Experiment package uploaded: {os.path.basename(package_path)}")
+    
+    def _process_summary_files(self) -> None:
+        """Process summary files and remove invalid ROI reports.
+        
+        This method processes summary report files in the experiment directory,
+        removing any ROI reports that have zero cycles or instructions.
+        """
+        if not hasattr(self, 'expdir') or not os.path.exists(self.expdir):
+            return
+            
+        try:
+            # Look for summary files in the experiment directory
+            for filename in os.listdir(self.expdir):
+                if filename.endswith("_roi_report.json"):
+                    filepath = os.path.join(self.expdir, filename)
+                    try:
+                        # Try to parse as SummaryReport
+                        summary = SummaryReport(filepath)
+                        
+                        # Check if this is a valid report (has cycles/instructions)
+                        if summary.totalcycles == 0 and summary.totalinsts == 0:
+                            if self.verbose:
+                                print(f"Removing invalid ROI report: {filename}")
+                            os.remove(filepath)
+                        else:
+                            if self.verbose:
+                                print(f"Valid ROI report processed: {filename}")
+                                
+                    except Exception as e:
+                        # If we can't parse it or there's an error, log and continue
+                        if self.verbose:
+                            print(f"Error processing {filename}: {e}")
+                        continue
+                        
+        except OSError as e:
+            if self.verbose:
+                print(f"Error accessing experiment directory: {e}")
+    
+    def _unpack_results(self, results_file: str) -> None:
+        """Unpack downloaded results file.
+        
+        Args:
+            results_file: Path to the results file to unpack
+        """
+        import tarfile
+        import shutil
+        
+        try:
+            # Extract results to the experiment directory
+            with tarfile.open(results_file, 'r:gz') as tar:
+                tar.extractall(path=self.expdir)
+                
+            if self.verbose:
+                print(f"Results unpacked to: {self.expdir}")
+                
+        except Exception as e:
+            if self.verbose:
+                print(f"Error unpacking results: {e}")
+            raise ExperimentError(f"Failed to unpack results: {e}")

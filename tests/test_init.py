@@ -16,7 +16,7 @@ class TestAtlasExplorerInit(unittest.TestCase):
         """Test that version attributes are properly defined."""
         self.assertTrue(hasattr(atlasexplorer, '__version__'))
         self.assertTrue(hasattr(atlasexplorer, '__author__'))
-        self.assertEqual(atlasexplorer.__version__, "2.0.0")
+        self.assertEqual(atlasexplorer.__version__, "3.0.0")
         self.assertEqual(atlasexplorer.__author__, "MIPS Technologies")
 
     def test_main_exports(self):
@@ -95,6 +95,10 @@ class TestAtlasExplorerInit(unittest.TestCase):
             "ELFAnalyzer",
             # CLI
             "AtlasExplorerCLI",
+            # CLI Functions for legacy compatibility
+            "configure", "subcmd_configure",
+            # External dependencies for legacy compatibility
+            "Cipher", "ELFFile", "load_dotenv", "prompt", "scrypt", "default_backend",
             # Exceptions
             "AtlasExplorerError", "AuthenticationError", "NetworkError",
             "EncryptionError", "ELFValidationError", "ExperimentError", "ConfigurationError",

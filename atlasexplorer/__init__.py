@@ -143,13 +143,6 @@ __all__ = [
     "LegacySummaryReport",
     "LegacyAtlasConfig",
     "LegacyAtlasConstants"
-    # Legacy compatibility exports
-    # Legacy compatibility exports (with deprecation warnings)
-    "LegacyAtlasConfig",
-    "LegacyAtlasConstants",
-    "LegacyAtlasExplorer",
-    "LegacyExperiment",
-    "LegacySummaryReport",
 ]
 
 # Deprecation warnings for legacy usage

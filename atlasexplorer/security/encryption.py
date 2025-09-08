@@ -103,6 +103,18 @@ class SecureEncryption:
         # Legacy decryption method
         self._legacy_decrypt_file_with_password(src_file_path, password)
     
+    def decrypt_file(self, src_file_path: Union[str, Path], password: str) -> None:
+        """Alias for decrypt_file_with_password for backward compatibility.
+        
+        Args:
+            src_file_path: Path to encrypted file
+            password: Decryption password
+            
+        Raises:
+            EncryptionError: If decryption fails
+        """
+        self.decrypt_file_with_password(src_file_path, password)
+    
     def _legacy_hybrid_encrypt_file(self, public_key_pem: str, input_file: Union[str, Path]) -> None:
         """Encrypt a file using the original hybrid encryption format.
         

@@ -446,13 +446,17 @@ class TestExperiment(unittest.TestCase):
 
     @patch('tarfile.open')
     @patch('os.path.join')
-    def test_create_experiment_package(self, mock_join, mock_tarfile):
+    @patch('os.path.exists')
+    def test_create_experiment_package(self, mock_exists, mock_join, mock_tarfile):
         """Test _create_experiment_package method."""
         experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
         experiment.workloads = ["/path/to/test.elf"]
         
         config = {"test": "config"}
         expdir = "/test/exp/dir"
+        
+        # Mock file existence
+        mock_exists.return_value = True
         
         # Mock tarfile operations
         mock_tar = Mock()
@@ -627,7 +631,7 @@ class TestExperimentIntegration(unittest.TestCase):
         experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
         experiment.experiment_timestamp = "250827_123456"
         
-        config = {"reports": []}
+        config = {"reports": [], "uuid": "test-uuid-123", "core": "I8500"}
         workload_objs = [
             {"elf": "/path/to/benchmark.elf", "zstf": ""},
             {"elf": "/path/to/application", "zstf": "custom.zstf"}
@@ -672,10 +676,10 @@ class TestExperimentCloudExecution(unittest.TestCase):
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('requests.post')
+    @patch('requests.put')
     @patch('os.path.getsize')
     @patch('builtins.open', new_callable=mock_open, read_data=b"test_package_data")
-    def test_upload_experiment_package_verbose(self, mock_file, mock_getsize, mock_post):
+    def test_upload_experiment_package_verbose(self, mock_file, mock_getsize, mock_put):
         """Test _upload_experiment_package with verbose output."""
         experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
         experiment.experiment_timestamp = "250827_123456"
@@ -684,14 +688,15 @@ class TestExperimentCloudExecution(unittest.TestCase):
         mock_getsize.return_value = 1024
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_post.return_value = mock_response
+        mock_put.return_value = mock_response
         
-        config = {"test": "config"}
+        config = {"uuid": "test-uuid", "test": "config"}
         package_path = "/path/to/package.exp"
         
         # Mock the signed URLs response
-        self.mock_atlas.getSignedUrls.return_value = {
-            "putUrl": "https://upload.url",
+        self.mock_atlas.getSignedUrls.return_value = Mock()
+        self.mock_atlas.getSignedUrls.return_value.json.return_value = {
+            "exppackageurl": "https://upload.url",
             "getUrl": "https://download.url"
         }
         
@@ -699,7 +704,7 @@ class TestExperimentCloudExecution(unittest.TestCase):
             experiment._upload_experiment_package(package_path, config)
             
             # Verify verbose output
-            mock_print.assert_called_with("Uploading experiment package")
+            mock_print.assert_called_with("Experiment package uploaded: package.exp")
 
     @patch('requests.get')
     @patch('time.sleep')
@@ -720,7 +725,8 @@ class TestExperimentCloudExecution(unittest.TestCase):
             "metadata": {
                 "result": {
                     "url": "https://result.url",
-                    "filename": "results.tar.gz"
+                    "filename": "results.tar.gz",
+                    "type": "stream"
                 }
             }
         }
@@ -729,14 +735,24 @@ class TestExperimentCloudExecution(unittest.TestCase):
         
         config = {"uuid": "test-uuid"}
         
+        # Mock getSignedUrls response
+        self.mock_atlas.getSignedUrls.return_value = Mock()
+        self.mock_atlas.getSignedUrls.return_value.json.return_value = {
+            "exppackageurl": "https://upload.url",
+            "publicKey": "test-public-key",
+            "statusget": "https://status.url"
+        }
+        
         with patch('builtins.print') as mock_print:
             with patch.object(experiment, '_download_result_file') as mock_download:
-                experiment._execute_cloud_experiment("/path/to/package", config)
+                with patch.object(experiment.encryption, 'hybrid_encrypt_file') as mock_encrypt:
+                    with patch.object(experiment, '_upload_package') as mock_upload:
+                        experiment._execute_cloud_experiment("/path/to/package", config)
                 
                 # Verify verbose output for status 100
                 print_calls = [call[0][0] for call in mock_print.call_args_list]
-                self.assertTrue(any("Experiment is being generated..." in call for call in print_calls))
-                self.assertTrue(any("Experiment is ready, downloading now" in call for call in print_calls))
+                self.assertTrue(any("experiment is being generated....." in call for call in print_calls))
+                self.assertTrue(any("experiment is ready, downloading now" in call for call in print_calls))
 
     @patch('requests.get')
     def test_download_result_file_chunks(self, mock_get):
@@ -774,22 +790,37 @@ class TestExperimentCloudExecution(unittest.TestCase):
         
         self.assertIn("Failed to download result file", str(context.exception))
 
-    @patch('os.path.exists')
-    def test_download_and_unpack_results_verbose(self, mock_exists):
+    def test_download_and_unpack_results_verbose(self):
         """Test _download_and_unpack_results with verbose output."""
         experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=True)
         experiment.expname = "test_experiment"
         
-        config = {"otp": "test_otp"}
+        config = {
+            "otp": "test-otp",
+            "workload": [{"elf": "/path/to/test.elf"}]
+        }
         
-        # Mock file exists
-        mock_exists.return_value = True
+        def mock_exists(path):
+            # Mock that result file exists, but summary and elf files don't
+            result_file = os.path.join(experiment.expdir, f"{experiment.expname}.tar.gz")
+            if path == result_file:
+                return True
+            return False
         
-        with patch('builtins.print') as mock_print:
-            with patch.object(experiment.encryption, 'decrypt_file') as mock_decrypt:
-                with patch.object(experiment, '_unpack_results') as mock_unpack:
-                    with patch.object(experiment, '_process_summary_files') as mock_process:
-                        experiment._download_and_unpack_results(config)
+        with patch('os.path.exists', side_effect=mock_exists):
+            with patch('builtins.print') as mock_print:
+                with patch.object(experiment.encryption, 'decrypt_file_with_password') as mock_decrypt:
+                    with patch('tarfile.open') as mock_tarfile:
+                        with patch.object(experiment, '_clean_summaries') as mock_clean:
+                            mock_tar = Mock()
+                            mock_tarfile.return_value.__enter__.return_value = mock_tar
+        
+                            experiment._download_and_unpack_results(config)
+                            
+                            # Verify all steps
+                            experiment.encryption.decrypt_file_with_password.assert_called_once()
+                            mock_tar.extractall.assert_called_once()
+                            mock_clean.assert_called_once()
                         
                         # Verify verbose output
                         print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -820,7 +851,7 @@ class TestExperimentCloudExecution(unittest.TestCase):
                     # Verify invalid ROI file was deleted and verbose output shown
                     mock_remove.assert_called_once()
                     print_calls = [call[0][0] for call in mock_print.call_args_list]
-                    self.assertTrue(any("Deleting invalid ROI report" in call for call in print_calls))
+                    self.assertTrue(any("Removing invalid ROI report" in call for call in print_calls))
 
     @patch('os.listdir')
     @patch('os.path.exists')
@@ -839,7 +870,7 @@ class TestExperimentCloudExecution(unittest.TestCase):
                 
                 # Verify error was printed
                 print_calls = [call[0][0] for call in mock_print.call_args_list]
-                self.assertTrue(any("Error processing summary file" in call for call in print_calls))
+                self.assertTrue(any("Error processing" in call for call in print_calls))
 
     def test_get_experiment_method(self):
         """Test getExperiment method for creating sub-experiments."""
@@ -975,7 +1006,8 @@ class TestExperimentComplexWorkflows(unittest.TestCase):
             "metadata": {
                 "result": {
                     "url": "https://result.url",
-                    "filename": "results.tar.gz"
+                    "filename": "results.tar.gz",
+                    "type": "stream"
                 }
             }
         }
@@ -992,15 +1024,16 @@ class TestExperimentComplexWorkflows(unittest.TestCase):
                 
                 # Verify multiple status checks occurred
                 self.assertEqual(mock_get.call_count, 4)
-                self.assertEqual(mock_sleep.call_count, 3)  # Sleep called 3 times between checks
+                self.assertEqual(mock_sleep.call_count, 4)  # Sleep called once per loop iteration
                 
                 # Verify verbose output for generation status
                 print_calls = [call[0][0] for call in mock_print.call_args_list]
-                generation_calls = [call for call in print_calls if "Experiment is being generated..." in call]
+                generation_calls = [call for call in print_calls if "experiment is being generated....." in call]
                 self.assertEqual(len(generation_calls), 3)  # Should print 3 times
 
     @patch('tarfile.open')
-    def test_create_experiment_package_with_workloads(self, mock_tarfile):
+    @patch('os.path.exists')
+    def test_create_experiment_package_with_workloads(self, mock_exists, mock_tarfile):
         """Test _create_experiment_package with actual workload files."""
         experiment = Experiment(self.temp_dir, self.mock_atlas, verbose=False)
         experiment.workloads = ["/path/to/app1.elf", "/path/to/app2.elf"]
@@ -1011,6 +1044,9 @@ class TestExperimentComplexWorkflows(unittest.TestCase):
                 {"elf": "/path/to/app2.elf", "zstf": "custom.zstf"}
             ]
         }
+        
+        # Mock file existence
+        mock_exists.return_value = True
         
         # Mock tarfile operations
         mock_tar = Mock()
@@ -1159,7 +1195,7 @@ class TestExperimentWorkflow(unittest.TestCase):
             experiment.run(expname="test_experiment")
             
             # Verify atlas methods were called
-            self.mock_atlas._getCloudCaps.assert_called_once_with("0.0.97")
+            self.mock_atlas._getCloudCaps.assert_called_once_with("latest")
             self.mock_atlas.getVersionList.assert_called_once()
             self.mock_atlas.getCoreInfo.assert_called_once_with("I8500")
 

@@ -172,7 +172,7 @@ class TestSecureEncryptionHybrid(unittest.TestCase):
         try:
             with patch('builtins.print') as mock_print:
                 encryption_verbose.hybrid_encrypt_file(self.public_key_pem, temp_file_path)
-                mock_print.assert_called_with("File encrypted using secure hybrid approach.")
+                mock_print.assert_called_with("File encrypted using new backend-compatible hybrid format.")
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
@@ -253,7 +253,7 @@ class TestSecureEncryptionErrorHandling(unittest.TestCase):
             self.encryption.hybrid_encrypt_file("dummy_key", "/root/non_accessible_file.txt")
         
         # Should wrap the underlying error
-        self.assertIn("Encryption error", str(context.exception))
+        self.assertIn("Legacy encryption error", str(context.exception))
 
     def test_secure_delete_permission_error(self):
         """Test secure delete when file cannot be deleted."""

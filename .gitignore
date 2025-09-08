@@ -17,6 +17,9 @@ resources/dhrystone.RISCV64-BAD.elf
 # Remove the MacOS specific files
 .DS_Store
 
+# Remove claude_done
+claude_done/
+
 # C extensions
 *.so
 
